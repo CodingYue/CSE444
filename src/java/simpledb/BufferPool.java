@@ -1,6 +1,11 @@
 package simpledb;
 
+import java.awt.image.DataBuffer;
 import java.io.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -20,13 +25,22 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
+    private final Page[] pagePool;
+    private final Map<PageId, Integer> pageIdToCachedIndex;
+    private final Set<Integer> idlePagePoolIndex;
+
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
      * @param numPages maximum number of pages in this buffer pool.
      */
     public BufferPool(int numPages) {
-        // some code goes here
+        this.pagePool = new Page[numPages];
+        pageIdToCachedIndex = new HashMap<PageId, Integer>();
+        idlePagePoolIndex = new HashSet<Integer>();
+        for (int i = 0; i < numPages; ++i) {
+            idlePagePoolIndex.add(i);
+        }
     }
 
     /**
@@ -46,8 +60,14 @@ public class BufferPool {
      */
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
-        // some code goes here
-        return null;
+        if (pageIdToCachedIndex.containsKey(pid)) {
+            return pagePool[pageIdToCachedIndex.get(pid)];
+        }
+        int idleIndex = idlePagePoolIndex.iterator().next();
+        idlePagePoolIndex.remove(idleIndex);
+        pageIdToCachedIndex.put(pid, idleIndex);
+        pagePool[idleIndex] = Database.getCatalog().getDbFile(pid.getTableId()).readPage(pid);
+        return pagePool[idleIndex];
     }
 
     /**
