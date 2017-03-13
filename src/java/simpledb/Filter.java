@@ -9,40 +9,44 @@ public class Filter extends Operator {
 
     private static final long serialVersionUID = 1L;
 
+    private final Predicate predicate;
+    private final DbIterator child;
+
+    private DbIterator[] children;
+
     /**
      * Constructor accepts a predicate to apply and a child operator to read
      * tuples to filter from.
      * 
-     * @param p
+     * @param predicate
      *            The predicate to filter tuples with
      * @param child
      *            The child operator
      */
-    public Filter(Predicate p, DbIterator child) {
-        // some code goes here
+    public Filter(Predicate predicate, DbIterator child) {
+        this.predicate = predicate;
+        this.child = child;
     }
 
     public Predicate getPredicate() {
-        // some code goes here
-        return null;
+        return predicate;
     }
 
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        return child.getTupleDesc();
     }
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
-        // some code goes here
+        child.open();
     }
 
     public void close() {
-        // some code goes here
+        child.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        // some code goes here
+        child.rewind();
     }
 
     /**
@@ -56,19 +60,23 @@ public class Filter extends Operator {
      */
     protected Tuple fetchNext() throws NoSuchElementException,
             TransactionAbortedException, DbException {
-        // some code goes here
+        while (child.hasNext()) {
+            Tuple tuple = child.next();
+            if (predicate.filter(tuple)) {
+                return tuple;
+            }
+        }
         return null;
     }
 
     @Override
     public DbIterator[] getChildren() {
-        // some code goes here
-        return null;
+        return children;
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        // some code goes here
+        this.children = children;
     }
 
 }

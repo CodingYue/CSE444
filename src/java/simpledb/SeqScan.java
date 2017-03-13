@@ -95,8 +95,7 @@ public class SeqScan implements DbIterator {
         TupleDesc tupleDesc = Database.getCatalog().getDbFile(tableId).getTupleDesc();
         TupleDesc.TDItem[] items = new TupleDesc.TDItem[tupleDesc.numFields()];
         for (int i = 0; i < tupleDesc.numFields(); ++i) {
-            items[i].fieldType = tupleDesc.getFieldType(i);
-            items[i].fieldName = tableAlias + tupleDesc.getFieldName(i);
+            items[i] = new TupleDesc.TDItem(tupleDesc.getFieldType(i), tableAlias + tupleDesc.getFieldName(i));
         }
         return new TupleDesc(items);
     }
