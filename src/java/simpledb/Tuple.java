@@ -2,6 +2,7 @@ package simpledb;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
 
 /**
@@ -13,6 +14,10 @@ public class Tuple implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    private TupleDesc tupleDesc;
+    private RecordId recordId;
+    private final Field[] fields;
+
     /**
      * Create a new tuple with the specified schema (type).
      * 
@@ -21,15 +26,15 @@ public class Tuple implements Serializable {
      *            instance with at least one field.
      */
     public Tuple(TupleDesc td) {
-        // some code goes here
+        tupleDesc = td;
+        fields = new Field[td.numFields()];
     }
 
     /**
      * @return The TupleDesc representing the schema of this tuple.
      */
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        return tupleDesc;
     }
 
     /**
@@ -37,8 +42,7 @@ public class Tuple implements Serializable {
      *         be null.
      */
     public RecordId getRecordId() {
-        // some code goes here
-        return null;
+        return recordId;
     }
 
     /**
@@ -48,7 +52,7 @@ public class Tuple implements Serializable {
      *            the new RecordId for this tuple.
      */
     public void setRecordId(RecordId rid) {
-        // some code goes here
+        recordId = rid;
     }
 
     /**
@@ -60,7 +64,7 @@ public class Tuple implements Serializable {
      *            new value for the field.
      */
     public void setField(int i, Field f) {
-        // some code goes here
+        fields[i] = f;
     }
 
     /**
@@ -70,8 +74,7 @@ public class Tuple implements Serializable {
      *            field index to return. Must be a valid index.
      */
     public Field getField(int i) {
-        // some code goes here
-        return null;
+        return fields[i];
     }
 
     /**
@@ -83,8 +86,15 @@ public class Tuple implements Serializable {
      * where \t is any whitespace, except newline, and \n is a newline
      */
     public String toString() {
-        // some code goes here
-        throw new UnsupportedOperationException("Implement this");
+        String result = "";
+        for (int i = 0; i < tupleDesc.numFields(); ++i) {
+            if (i > 0) {
+                result += "\t";
+            }
+            result += getField(i).toString();
+        }
+        result += "\n";
+        return result;
     }
     
     /**
@@ -93,7 +103,6 @@ public class Tuple implements Serializable {
      * */
     public Iterator<Field> fields()
     {
-        // some code goes here
-        return null;
+        return Arrays.asList(fields).iterator();
     }
 }
