@@ -21,6 +21,8 @@ public class HeapPage implements Page {
 
     byte[] oldData;
 
+    private TransactionId dirtyTransactionId;
+
     /**
      * Create a HeapPage from a set of bytes of data read from disk.
      * The format of a HeapPage is a set of header bytes indicating
@@ -228,8 +230,14 @@ public class HeapPage implements Page {
      * @param t The tuple to delete
      */
     public void deleteTuple(Tuple t) throws DbException {
-        // some code goes here
-        // not necessary for lab1
+        for (int i = 0; i < numSlots; ++i) {
+            if (isSlotUsed(i) && t.equals(tuples[i])) {
+                markSlotUsed(i, false);
+                tuples[i] = null;
+                return;
+            }
+        }
+        throw new DbException("tuple not found");
     }
 
     /**
@@ -240,8 +248,18 @@ public class HeapPage implements Page {
      * @param t The tuple to add.
      */
     public void insertTuple(Tuple t) throws DbException {
-        // some code goes here
-        // not necessary for lab1
+        if (!td.equals(t.getTupleDesc())) {
+            throw new DbException("tuple description mimatched");
+        }
+        for (int i = 0; i < numSlots; ++i) {
+            if (!isSlotUsed(i)) {
+                markSlotUsed(i, true);
+                t.setRecordId(new RecordId(getId(), i));
+                tuples[i] = t;
+                return;
+            }
+        }
+        throw new DbException("no empty slots");
     }
 
     /**
@@ -249,17 +267,18 @@ public class HeapPage implements Page {
      * that did the dirtying
      */
     public void markDirty(boolean dirty, TransactionId tid) {
-        // some code goes here
-	// not necessary for lab1
+        if (dirty) {
+            dirtyTransactionId = tid;
+        } else {
+            dirtyTransactionId = null;
+        }
     }
 
     /**
      * Returns the tid of the transaction that last dirtied this page, or null if the page is not dirty
      */
     public TransactionId isDirty() {
-        // some code goes here
-	// Not necessary for lab1
-        return null;      
+        return dirtyTransactionId;
     }
 
     /**

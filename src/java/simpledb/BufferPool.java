@@ -2,10 +2,7 @@ package simpledb;
 
 import java.awt.image.DataBuffer;
 import java.io.*;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -28,6 +25,10 @@ public class BufferPool {
     private final Page[] pagePool;
     private final Map<PageId, Integer> pageIdToCachedIndex;
     private final Set<Integer> idlePagePoolIndex;
+    private final Map<PageId, Integer> latestUsedTimestamp;
+
+
+    private int timestamp;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -41,6 +42,7 @@ public class BufferPool {
         for (int i = 0; i < numPages; ++i) {
             idlePagePoolIndex.add(i);
         }
+        latestUsedTimestamp = new HashMap<PageId, Integer>();
     }
 
     /**
@@ -60,8 +62,15 @@ public class BufferPool {
      */
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
+
+        timestamp++;
+        latestUsedTimestamp.put(pid, timestamp);
+        
         if (pageIdToCachedIndex.containsKey(pid)) {
             return pagePool[pageIdToCachedIndex.get(pid)];
+        }
+        if (idlePagePoolIndex.size() == 0) {
+            evictPage();
         }
         int idleIndex = idlePagePoolIndex.iterator().next();
         idlePagePoolIndex.remove(idleIndex);
@@ -130,8 +139,11 @@ public class BufferPool {
      */
     public void insertTuple(TransactionId tid, int tableId, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
-        // some code goes here
-        // not necessary for lab1
+        DbFile file = Database.getCatalog().getDbFile(tableId);
+        ArrayList<Page> pages = file.insertTuple(tid, t);
+        for (Page page : pages) {
+            page.markDirty(true, tid);
+        }
     }
 
     /**
@@ -149,8 +161,9 @@ public class BufferPool {
      */
     public  void deleteTuple(TransactionId tid, Tuple t)
         throws DbException, TransactionAbortedException {
-        // some code goes here
-        // not necessary for lab1
+        DbFile file = Database.getCatalog().getDbFile(t.getRecordId().getPageId().getTableId());
+        Page page = file.deleteTuple(tid, t);
+        page.markDirty(true, tid);
     }
 
     /**
@@ -159,8 +172,9 @@ public class BufferPool {
      *     break simpledb if running in NO STEAL mode.
      */
     public synchronized void flushAllPages() throws IOException {
-        // some code goes here
-        // not necessary for lab1
+        for (int idx : pageIdToCachedIndex.values()) {
+            flushPage(pagePool[idx].getId());
+        }
 
     }
 
@@ -179,8 +193,12 @@ public class BufferPool {
      * @param pid an ID indicating the page to flush
      */
     private synchronized  void flushPage(PageId pid) throws IOException {
-        // some code goes here
-        // not necessary for lab1
+        DbFile file = Database.getCatalog().getDbFile(pid.getTableId());
+        Page page = pagePool[pageIdToCachedIndex.get(pid)];
+        if (page.isDirty() != null) {
+            file.writePage(page);
+            page.markDirty(false, null);
+        }
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -195,8 +213,29 @@ public class BufferPool {
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
     private synchronized  void evictPage() throws DbException {
-        // some code goes here
-        // not necessary for lab1
+        if (idlePagePoolIndex.size() != 0) {
+            throw new DbException("evict must meet condition : not more slots");
+        }
+        Page leastRecentlyUsedPage = null;
+        int leastTimestamp = timestamp;
+        for (Page page : pagePool) {
+            if (page.isDirty() != null) {
+                continue;
+            }
+            if (leastTimestamp > latestUsedTimestamp.get(page.getId())) {
+                leastRecentlyUsedPage = page;
+                leastTimestamp = latestUsedTimestamp.get(page.getId());
+            }
+        }
+        try {
+            flushPage(leastRecentlyUsedPage.getId());
+        } catch (Exception e) {
+            throw new DbException("flush page failed.");
+        }
+        int idx = pageIdToCachedIndex.get(leastRecentlyUsedPage.getId());
+        idlePagePoolIndex.add(idx);
+        pagePool[idx] = null;
+        pageIdToCachedIndex.remove(leastRecentlyUsedPage.getId());
+        latestUsedTimestamp.remove(leastRecentlyUsedPage.getId());
     }
-
 }

@@ -1,5 +1,7 @@
 package simpledb;
 
+import java.io.IOException;
+
 /**
  * Inserts tuples read from the child operator into the tableid specified in the
  * constructor
@@ -7,6 +9,14 @@ package simpledb;
 public class Insert extends Operator {
 
     private static final long serialVersionUID = 1L;
+
+    private final TransactionId tid;
+    private final DbIterator child;
+    private final int tableId;
+
+    private boolean hasBeenCalled;
+
+    private DbIterator[] children;
 
     /**
      * Constructor.
@@ -21,26 +31,29 @@ public class Insert extends Operator {
      *             if TupleDesc of child differs from table into which we are to
      *             insert.
      */
-    public Insert(TransactionId t,DbIterator child, int tableid)
+    public Insert(TransactionId t, DbIterator child, int tableid)
             throws DbException {
-        // some code goes here
+        this.tid = t;
+        this.child = child;
+        this.tableId = tableid;
     }
 
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        return new TupleDesc(new Type[]{Type.INT_TYPE});
     }
 
     public void open() throws DbException, TransactionAbortedException {
-        // some code goes here
+        child.open();
+        this.hasBeenCalled = false;
     }
 
     public void close() {
-        // some code goes here
+        child.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        // some code goes here
+        close();
+        open();
     }
 
     /**
@@ -57,18 +70,32 @@ public class Insert extends Operator {
      * @see BufferPool#insertTuple
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
-        // some code goes here
-        return null;
+        if (hasBeenCalled) {
+            return null;
+        }
+        int insertCount = 0;
+        hasBeenCalled = true;
+        while (child.hasNext()) {
+            Tuple tuple = child.next();
+            insertCount++;
+            try {
+                Database.getBufferPool().insertTuple(tid, tableId, tuple);
+            } catch (IOException e) {
+                throw new DbException("Insert failed");
+            }
+        }
+        Tuple tuple = new Tuple(getTupleDesc());
+        tuple.setField(0, new IntField(insertCount));
+        return tuple;
     }
 
     @Override
     public DbIterator[] getChildren() {
-        // some code goes here
-        return null;
+        return children;
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        // some code goes here
+        this.children = children;
     }
 }
