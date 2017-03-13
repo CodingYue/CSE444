@@ -22,7 +22,7 @@ public class TransactionId implements Serializable {
     }
 
     public boolean equals(Object tid) {
-        return ((TransactionId)tid).myid == myid;
+        return tid != null && ((TransactionId)tid).myid == myid;
     }
 
     public int hashCode() {
