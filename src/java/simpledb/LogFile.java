@@ -466,7 +466,19 @@ public class LogFile {
         synchronized (Database.getBufferPool()) {
             synchronized(this) {
                 preAppend();
-                // some code goes here
+                if (tidToFirstLogRecord.containsKey(tid.getId())) {
+                    for (long offset = currentOffset; offset > tidToFirstLogRecord.get(tid.getId()); ) {
+                        raf.seek(offset-LONG_SIZE);
+                        offset = raf.readLong();
+                        raf.seek(offset);
+                        int recordType = raf.readInt();
+                        long recordTid = raf.readLong();
+                        if (recordType == UPDATE_RECORD && tid.getId() == recordTid) {
+                            Page before = readPageData(raf);
+                            Database.getCatalog().getDatabaseFile(before.getId().getTableId()).writePage(before);
+                        }
+                    }
+                }
             }
         }
     }
