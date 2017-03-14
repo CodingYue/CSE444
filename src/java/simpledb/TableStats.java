@@ -2,6 +2,8 @@ package simpledb;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * TableStats represents statistics (e.g., histograms) about base tables in a
@@ -11,7 +13,7 @@ import java.util.Iterator;
  */
 public class TableStats {
 
-    private static HashMap<String, TableStats> statsMap = new HashMap<String, TableStats>();
+    private static final ConcurrentHashMap<String, TableStats> statsMap = new ConcurrentHashMap<String, TableStats>();
 
     static final int IOCOSTPERPAGE = 1000;
 
@@ -25,10 +27,23 @@ public class TableStats {
     
     public static void setStatsMap(HashMap<String,TableStats> s)
     {
-        statsMap = s;
+        try {
+            java.lang.reflect.Field statsMapF = TableStats.class.getDeclaredField("statsMap");
+            statsMapF.setAccessible(true);
+            statsMapF.set(null, s);
+        } catch (NoSuchFieldException e) {
+            e.printStackTrace();
+        } catch (SecurityException e) {
+            e.printStackTrace();
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+
     }
 
-    public static HashMap<String, TableStats> getStatsMap() {
+    public static Map<String, TableStats> getStatsMap() {
         return statsMap;
     }
 

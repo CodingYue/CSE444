@@ -49,13 +49,13 @@ public class LogicalJoinNode {
     public LogicalJoinNode swapInnerOuter() {
         Predicate.Op newp;
         if (p == Predicate.Op.GREATER_THAN)
-            newp = Predicate.Op.LESS_THAN_OR_EQ;
-        else if (p == Predicate.Op.GREATER_THAN_OR_EQ)
             newp = Predicate.Op.LESS_THAN;
+        else if (p == Predicate.Op.GREATER_THAN_OR_EQ)
+            newp = Predicate.Op.LESS_THAN_OR_EQ;
         else if (p == Predicate.Op.LESS_THAN)
-            newp = Predicate.Op.GREATER_THAN_OR_EQ;
-        else if (p == Predicate.Op.LESS_THAN_OR_EQ)
             newp = Predicate.Op.GREATER_THAN;
+        else if (p == Predicate.Op.LESS_THAN_OR_EQ)
+            newp = Predicate.Op.GREATER_THAN_OR_EQ;
         else 
             newp = p;
         

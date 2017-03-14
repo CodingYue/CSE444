@@ -78,7 +78,7 @@ public class SeqScan implements DbIterator {
     }
 
     public void open() throws DbException, TransactionAbortedException {
-        tableIterator = Database.getCatalog().getDbFile(tableId).iterator(tid);
+        tableIterator = Database.getCatalog().getDatabaseFile(tableId).iterator(tid);
         tableIterator.open();
     }
 
@@ -92,7 +92,7 @@ public class SeqScan implements DbIterator {
      *         prefixed with the tableAlias string from the constructor.
      */
     public TupleDesc getTupleDesc() {
-        TupleDesc tupleDesc = Database.getCatalog().getDbFile(tableId).getTupleDesc();
+        TupleDesc tupleDesc = Database.getCatalog().getDatabaseFile(tableId).getTupleDesc();
         TupleDesc.TDItem[] items = new TupleDesc.TDItem[tupleDesc.numFields()];
         for (int i = 0; i < tupleDesc.numFields(); ++i) {
             items[i] = new TupleDesc.TDItem(tupleDesc.getFieldType(i), tableAlias + tupleDesc.getFieldName(i));

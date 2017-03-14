@@ -9,7 +9,7 @@ public class IntField implements Field {
     
 	private static final long serialVersionUID = 1L;
 	
-	private int value;
+	private final int value;
 
     public int getValue() {
         return value;

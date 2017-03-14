@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The Catalog keeps track of all available tables in the database and their
@@ -12,8 +13,9 @@ import java.util.*;
  * For now, this is a stub catalog that must be populated with tables by a
  * user program before it can be used -- eventually, this should be converted
  * to a catalog that reads a catalog table from disk.
+ * 
+ * @Threadsafe
  */
-
 public class Catalog {
 
     private final Map<String, Integer> nameToTableId;
@@ -38,8 +40,8 @@ public class Catalog {
      * @param file the contents of the table to add;  file.getId() is the identfier of
      *    this file/tupledesc param for the calls getTupleDesc and getFile
      * @param name the name of the table -- may be an empty string.  May not be null.  If a name
-     * @param pkeyField the name of the primary key field
      * conflict exists, use the last table to be added as the table for a given name.
+     * @param pkeyField the name of the primary key field
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         nameToTableId.put(name, file.getId());
@@ -81,7 +83,7 @@ public class Catalog {
      * @throws NoSuchElementException if the table doesn't exist
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
-        return getDbFile(tableid).getTupleDesc();
+        return getDatabaseFile(tableid).getTupleDesc();
     }
 
     /**
@@ -90,7 +92,7 @@ public class Catalog {
      * @param tableid The id of the table, as specified by the DbFile.getId()
      *     function passed to addTable
      */
-    public DbFile getDbFile(int tableid) throws NoSuchElementException {
+    public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         if (!idToDbFile.containsKey(tableid)) {
             throw new NoSuchElementException();
         }
@@ -126,7 +128,7 @@ public class Catalog {
      */
     public void loadSchema(String catalogFile) {
         String line = "";
-        String baseFolder=new File(catalogFile).getParent();
+        String baseFolder=new File(new File(catalogFile).getAbsolutePath()).getParent();
         try {
             BufferedReader br = new BufferedReader(new FileReader(new File(catalogFile)));
             

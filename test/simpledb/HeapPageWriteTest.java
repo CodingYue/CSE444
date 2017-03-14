@@ -3,7 +3,9 @@ package simpledb;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 
@@ -17,8 +19,53 @@ import simpledb.systemtest.SimpleDbTestBase;
 import simpledb.systemtest.SystemTestUtil;
 
 public class HeapPageWriteTest extends SimpleDbTestBase {
-
     private HeapPageId pid;
+    
+    public static final int[][] EXAMPLE_VALUES = new int[][] {
+        { 31933, 862 },
+        { 29402, 56883 },
+        { 1468, 5825 },
+        { 17876, 52278 },
+        { 6350, 36090 },
+        { 34784, 43771 },
+        { 28617, 56874 },
+        { 19209, 23253 },
+        { 56462, 24979 },
+        { 51440, 56685 },
+        { 3596, 62307 },
+        { 45569, 2719 },
+        { 22064, 43575 },
+        { 42812, 44947 },
+        { 22189, 19724 },
+        { 33549, 36554 },
+        { 9086, 53184 },
+        { 42878, 33394 },
+        { 62778, 21122 },
+        { 17197, 16388 }
+    };
+    
+    public static final byte[] EXAMPLE_DATA;
+    static {
+        // Build the input table
+        ArrayList<ArrayList<Integer>> table = new ArrayList<ArrayList<Integer>>();
+        for (int[] tuple : EXAMPLE_VALUES) {
+            ArrayList<Integer> listTuple = new ArrayList<Integer>();
+            for (int value : tuple) {
+                listTuple.add(value);
+            }
+            table.add(listTuple);
+        }
+
+        // Convert it to a HeapFile and read in the bytes
+        try {
+            File temp = File.createTempFile("table", ".dat");
+            temp.deleteOnExit();
+            HeapFileEncoder.convert(table, temp, BufferPool.PAGE_SIZE, 2);
+            EXAMPLE_DATA = TestUtil.readFileBytes(temp.getAbsolutePath());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    } 
 
     /**
      * Set up initial resources for each unit test.
@@ -33,7 +80,7 @@ public class HeapPageWriteTest extends SimpleDbTestBase {
      */
     @Test public void testDirty() throws Exception {
         TransactionId tid = new TransactionId();
-        HeapPage page = new HeapPage(pid, HeapPageReadTest.EXAMPLE_DATA);
+        HeapPage page = new HeapPage(pid, HeapPageWriteTest.EXAMPLE_DATA);
         page.markDirty(true, tid);
         TransactionId dirtier = page.isDirty();
         assertEquals(true, dirtier != null);
@@ -48,7 +95,7 @@ public class HeapPageWriteTest extends SimpleDbTestBase {
      * Unit test for HeapPage.addTuple()
      */
     @Test public void addTuple() throws Exception {
-        HeapPage page = new HeapPage(pid, HeapPageReadTest.EXAMPLE_DATA);
+        HeapPage page = new HeapPage(pid, HeapPageWriteTest.EXAMPLE_DATA);
         int free = page.getNumEmptySlots();
 
         // NOTE(ghuo): this nested loop existence check is slow, but it
@@ -90,7 +137,7 @@ public class HeapPageWriteTest extends SimpleDbTestBase {
      */
     @Test(expected=DbException.class)
         public void deleteNonexistentTuple() throws Exception {
-        HeapPage page = new HeapPage(pid, HeapPageReadTest.EXAMPLE_DATA);
+        HeapPage page = new HeapPage(pid, HeapPageWriteTest.EXAMPLE_DATA);
         page.deleteTuple(Utility.getHeapTuple(2, 2));
     }
 
@@ -98,7 +145,7 @@ public class HeapPageWriteTest extends SimpleDbTestBase {
      * Unit test for HeapPage.deleteTuple()
      */
     @Test public void deleteTuple() throws Exception {
-        HeapPage page = new HeapPage(pid, HeapPageReadTest.EXAMPLE_DATA);
+        HeapPage page = new HeapPage(pid, HeapPageWriteTest.EXAMPLE_DATA);
         int free = page.getNumEmptySlots();
 
         // first, build a list of the tuples on the page.

@@ -1,4 +1,5 @@
 package simpledb;
+import java.util.Map;
 import java.util.Vector;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -65,7 +66,7 @@ public class LogicalPlan {
         return query;
     }
 
-    /** Given a table alias, return id of the table object (this id can be supplied to {@link Catalog#getDbFile(int)}).
+    /** Given a table alias, return id of the table object (this id can be supplied to {@link Catalog#getDatabaseFile(int)}).
         Aliases are added as base tables are added via {@link #addScan}.
 
         @param alias the table alias to return a table id for
@@ -157,7 +158,7 @@ public class LogicalPlan {
 
     /** Add a scan to the plan. One scan node needs to be added for each alias of a table
         accessed by the plan.
-        @param table the id of the table accessed by the plan (can be resolved to a DbFile using {@link Catalog#getDbFile}
+        @param table the id of the table accessed by the plan (can be resolved to a DbFile using {@link Catalog#getDatabaseFile}
         @param name the alias of the table in the plan
     */
 
@@ -238,7 +239,7 @@ public class LogicalPlan {
         while (tableIt.hasNext()) {
             LogicalScanNode table = tableIt.next();
             try {
-                TupleDesc td = Database.getCatalog().getDbFile(table.t).getTupleDesc();
+                TupleDesc td = Database.getCatalog().getDatabaseFile(table.t).getTupleDesc();
 //                int id = 
                   td.fieldNameToIndex(name);
                 if (tableName == null) {
@@ -283,7 +284,7 @@ public class LogicalPlan {
      *  @throws ParsingException if the logical plan is not valid
      *  @return A DbIterator representing this plan.
      */ 
-    public DbIterator physicalPlan(TransactionId t, HashMap<String,TableStats> baseTableStats, boolean explain) throws ParsingException {
+    public DbIterator physicalPlan(TransactionId t, Map<String,TableStats> baseTableStats, boolean explain) throws ParsingException {
         Iterator<LogicalScanNode> tableIt = tables.iterator();
         HashMap<String,String> equivMap = new HashMap<String,String>();
         HashMap<String,Double> filterSelectivities = new HashMap<String, Double>();
@@ -293,7 +294,7 @@ public class LogicalPlan {
             LogicalScanNode table = tableIt.next();
             SeqScan ss = null;
             try {
-                 ss = new SeqScan(t, Database.getCatalog().getDbFile(table.t).getId(), table.alias);
+                 ss = new SeqScan(t, Database.getCatalog().getDatabaseFile(table.t).getId(), table.alias);
             } catch (NoSuchElementException e) {
                 throw new ParsingException("Unknown table " + table.t);
             }

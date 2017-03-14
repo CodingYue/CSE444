@@ -8,8 +8,8 @@ import java.io.*;
  */
 
 public class Transaction {
-    TransactionId tid;
-    boolean started = false;
+    private final TransactionId tid;
+    volatile boolean started = false;
 
     public Transaction() {
         tid = new TransactionId();

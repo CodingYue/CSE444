@@ -9,8 +9,8 @@ public class StringField implements Field {
 
 	private static final long serialVersionUID = 1L;
 
-	private String value;
-	private int maxSize;
+	private final String value;
+	private final int maxSize;
 
 	public String getValue() {
 		return value;

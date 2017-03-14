@@ -13,13 +13,14 @@ import java.io.*;
  */
 public class HeapPage implements Page {
 
-    HeapPageId pid;
-    TupleDesc td;
-    byte header[];
-    Tuple tuples[];
-    int numSlots;
+    final HeapPageId pid;
+    final TupleDesc td;
+    final byte header[];
+    final Tuple tuples[];
+    final int numSlots;
 
     byte[] oldData;
+    private final Byte oldDataLock=new Byte((byte)0);
 
     private TransactionId dirtyTransactionId;
 
@@ -28,7 +29,7 @@ public class HeapPage implements Page {
      * The format of a HeapPage is a set of header bytes indicating
      * the slots of the page that are in use, some number of tuple slots.
      *  Specifically, the number of tuples is equal to: <p>
-     *          floor((BufferPool.PAGE_SIZE*8) / (tuple size * 8 + 1))
+     *          floor((BufferPool.getPageSize()*8) / (tuple size * 8 + 1))
      * <p> where tuple size is the size of tuples in this
      * database table, which can be determined via {@link Catalog#getTupleDesc}.
      * The number of 8-bit header words is equal to:
@@ -37,7 +38,7 @@ public class HeapPage implements Page {
      * <p>
      * @see Database#getCatalog
      * @see Catalog#getTupleDesc
-     * @see BufferPool#PAGE_SIZE
+     * @see BufferPool#getPageSize()
      */
     public HeapPage(HeapPageId id, byte[] data) throws IOException {
         this.pid = id;
@@ -49,10 +50,10 @@ public class HeapPage implements Page {
         header = new byte[getHeaderSize()];
         for (int i=0; i<header.length; i++)
             header[i] = dis.readByte();
-
+        
+        tuples = new Tuple[numSlots];
         try{
             // allocate and read the actual records of this page
-            tuples = new Tuple[numSlots];
             for (int i=0; i<tuples.length; i++)
                 tuples[i] = readNextTuple(dis,i);
         }catch(NoSuchElementException e){
@@ -67,7 +68,7 @@ public class HeapPage implements Page {
         @return the number of tuples on this page
     */
     private int getNumTuples() {        
-        return BufferPool.PAGE_SIZE * 8 / (td.getSize() * 8 + 1);
+        return BufferPool.getPageSize() * 8 / (td.getSize() * 8 + 1);
     }
 
     /**
@@ -148,7 +149,7 @@ public class HeapPage implements Page {
      * @return A byte array correspond to the bytes of this page.
      */
     public byte[] getPageData() {
-        int len = BufferPool.PAGE_SIZE;
+        int len = BufferPool.getPageSize();
         ByteArrayOutputStream baos = new ByteArrayOutputStream(len);
         DataOutputStream dos = new DataOutputStream(baos);
 
@@ -191,7 +192,7 @@ public class HeapPage implements Page {
         }
 
         // padding
-        int zerolen = BufferPool.PAGE_SIZE - (header.length + td.getSize() * tuples.length); //- numSlots * td.getSize();
+        int zerolen = BufferPool.getPageSize() - (header.length + td.getSize() * tuples.length); //- numSlots * td.getSize();
         byte[] zeroes = new byte[zerolen];
         try {
             dos.write(zeroes, 0, zerolen);
@@ -218,7 +219,7 @@ public class HeapPage implements Page {
      * @return The returned ByteArray.
      */
     public static byte[] createEmptyPageData() {
-        int len = BufferPool.PAGE_SIZE;
+        int len = BufferPool.getPageSize();
         return new byte[len]; //all 0
     }
 

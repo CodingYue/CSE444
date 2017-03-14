@@ -2,9 +2,7 @@ package simpledb;
 
 import java.io.Serializable;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Objects;
 
 /**
  * Tuple maintains information about the contents of a tuple. Tuples have a

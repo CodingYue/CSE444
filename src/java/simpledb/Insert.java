@@ -42,12 +42,16 @@ public class Insert extends Operator {
         return new TupleDesc(new Type[]{Type.INT_TYPE});
     }
 
+    @Override
     public void open() throws DbException, TransactionAbortedException {
+        super.open();
         child.open();
         this.hasBeenCalled = false;
     }
 
+    @Override
     public void close() {
+        super.close();
         child.close();
     }
 

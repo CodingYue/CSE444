@@ -30,7 +30,7 @@ public class DeadlockTest extends TestUtil.CreateHeapFile {
     bp = Database.resetBufferPool(BufferPool.DEFAULT_PAGES);
 
     // create a new empty HeapFile and populate it with three pages.
-    // we should be able to add 512 tuples on an empty page.
+    // we should be able to add 504 tuples on an empty page.
     TransactionId tid = new TransactionId();
     for (int i = 0; i < 1025; ++i) {
       empty.insertTuple(tid, Utility.getHeapTuple(i, 2));

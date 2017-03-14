@@ -48,9 +48,11 @@ public class Project extends Operator {
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         child.open();
+        super.open();
     }
 
     public void close() {
+        super.close();
         child.close();
     }
 

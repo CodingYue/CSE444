@@ -4,13 +4,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-import static simpledb.Type.INT_TYPE;
-
 /**
  * Knows how to compute some aggregate over a set of IntFields.
  */
 public class IntegerAggregator implements Aggregator {
 
+    private static final long serialVersionUID = 1L;
     private final int gbFieldNo;
     private final Type gbFieldType;
     private final int aggregateFieldNo;
@@ -20,13 +19,19 @@ public class IntegerAggregator implements Aggregator {
     private final Map<Field, Integer> valueGroupedBy;
 
     private String groupFieldName;
-
     /**
      * Aggregate constructor
-     * @param gbFieldNo the 0-based index of the group-by field in the tuple, or NO_GROUPING if there is no grouping
-     * @param gbfieldtype the type of the group by field (e.g., Type.INT_TYPE), or null if there is no grouping
-     * @param aggregateFieldNo the 0-based index of the aggregate field in the tuple
-     * @param what the aggregation operator
+     * 
+     * @param gbFieldNo
+     *            the 0-based index of the group-by field in the tuple, or
+     *            NO_GROUPING if there is no grouping
+     * @param gbfieldtype
+     *            the type of the group by field (e.g., Type.INT_TYPE), or null
+     *            if there is no grouping
+     * @param aggregateFieldNo
+     *            the 0-based index of the aggregate field in the tuple
+     * @param what
+     *            the aggregation operator
      */
 
     public IntegerAggregator(int gbFieldNo, Type gbfieldtype, int aggregateFieldNo, Op what) {
@@ -39,8 +44,11 @@ public class IntegerAggregator implements Aggregator {
     }
 
     /**
-     * Merge a new tuple into the aggregate, grouping as indicated in the constructor
-     * @param tup the Tuple containing an aggregate field and a group-by field
+     * Merge a new tuple into the aggregate, grouping as indicated in the
+     * constructor
+     * 
+     * @param tup
+     *            the Tuple containing an aggregate field and a group-by field
      */
     public void mergeTupleIntoGroup(Tuple tup) {
         Field groupField = gbFieldNo == NO_GROUPING ? new IntField(0): tup.getField(gbFieldNo);
@@ -76,11 +84,11 @@ public class IntegerAggregator implements Aggregator {
 
     /**
      * Create a DbIterator over group aggregate results.
-     *
-     * @return a DbIterator whose tuples are the pair (groupVal,
-     *   aggregateVal) if using group, or a single (aggregateVal) if no
-     *   grouping. The aggregateVal is determined by the type of
-     *   aggregate specified in the constructor.
+     * 
+     * @return a DbIterator whose tuples are the pair (groupVal, aggregateVal)
+     *         if using group, or a single (aggregateVal) if no grouping. The
+     *         aggregateVal is determined by the type of aggregate specified in
+     *         the constructor.
      */
     public DbIterator iterator() {
         if (gbFieldNo != NO_GROUPING) {

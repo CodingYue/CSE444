@@ -1,7 +1,12 @@
 package simpledb.systemtest;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+
+import junit.framework.Assert;
 import simpledb.*;
 
 import static org.junit.Assert.*;
@@ -67,7 +72,8 @@ public class InsertTest extends SimpleDbTestBase {
             throws IOException, DbException, TransactionAbortedException {
         validateInsert(1, 1, 1);
     }
-
+    
+    // some code goes here
     /** Make test compatible with older version of ant. */
     public static junit.framework.Test suite() {
         return new junit.framework.JUnit4TestAdapter(InsertTest.class);

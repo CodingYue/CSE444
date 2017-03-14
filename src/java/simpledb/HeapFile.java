@@ -117,7 +117,7 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
-    public Page deleteTuple(TransactionId tid, Tuple t) throws DbException,
+    public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
             TransactionAbortedException {
         if (t.getRecordId() == null) {
             throw new DbException("Heap file delete tuple, record id is null");
@@ -125,7 +125,7 @@ public class HeapFile implements DbFile {
         PageId pageId = t.getRecordId().getPageId();
         HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, pageId, Permissions.READ_WRITE);
         page.deleteTuple(t);
-        return page;
+        return new ArrayList<Page>(Arrays.asList(page));
     }
 
     // see DbFile.java for javadocs

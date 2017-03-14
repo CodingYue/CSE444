@@ -87,11 +87,13 @@ public class Aggregate extends Operator {
     }
 
     public static String nameOfAggregatorOp(Aggregator.Op aop) {
-	    return aop.toString();
+	return aop.toString();
     }
 
+    @Override
     public void open() throws NoSuchElementException, DbException,
 	    TransactionAbortedException {
+        super.open();
         if (aggregateIterator == null) {
             Aggregator aggregator;
             Type afieldType = child.getTupleDesc().getFieldType(afield);
@@ -152,7 +154,9 @@ public class Aggregate extends Operator {
         }
     }
 
+    @Override
     public void close() {
+        super.close();
         aggregateIterator.close();
     }
 

@@ -62,7 +62,7 @@ public interface Aggregator extends Serializable {
         	if (this==COUNT)
         		return "count";
         	if (this==SC_AVG)
-    			return "avg";
+    			return "sc_avg";
         	throw new IllegalStateException("impossible to reach here");
         }
     }

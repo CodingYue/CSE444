@@ -61,9 +61,11 @@ public class OrderBy extends Operator {
             childTups.add((Tuple) child.next());
         Collections.sort(childTups, new TupleComparator(orderByField, asc));
         it = childTups.iterator();
+        super.open();
     }
 
     public void close() {
+        super.close();
         it = null;
     }
 

@@ -2,6 +2,7 @@ package simpledb;
 
 import Zql.*;
 import java.io.*;
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
 import jline.ArgumentCompletor;
@@ -270,11 +271,11 @@ public class Parser {
     }
 
     private Transaction curtrans = null;
+    private boolean inUserTrans = false;
 
     public Query handleQueryStatement(ZQuery s, TransactionId tId)
             throws TransactionAbortedException, DbException, IOException,
             simpledb.ParsingException, Zql.ParseException {
-        // and run it
         Query query = new Query(tId);
 
         LogicalPlan lp = parseQueryLogicalPlan(tId, s);
@@ -282,6 +283,39 @@ public class Parser {
                 TableStats.getStatsMap(), explain);
         query.setPhysicalPlan(physicalPlan);
         query.setLogicalPlan(lp);
+
+        if (physicalPlan != null) {
+            Class<?> c;
+            try {
+                c = Class.forName("simpledb.OperatorCardinality");
+
+                Class<?> p = Operator.class;
+                Class<?> h = Map.class;
+
+                java.lang.reflect.Method m = c.getMethod(
+                        "updateOperatorCardinality", p, h, h);
+
+                System.out.println("The query plan is:");
+                m.invoke(null, (Operator) physicalPlan,
+                        lp.getTableAliasToIdMapping(), TableStats.getStatsMap());
+                c = Class.forName("simpledb.QueryPlanVisualizer");
+                m = c.getMethod(
+                        "printQueryPlanTree", DbIterator.class, System.out.getClass());
+                m.invoke(c.newInstance(), physicalPlan,System.out);
+            } catch (ClassNotFoundException e) {
+            } catch (SecurityException e) {
+            } catch (NoSuchMethodException e) {
+                e.printStackTrace();
+            } catch (IllegalArgumentException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            } catch (InvocationTargetException e) {
+                e.printStackTrace();
+            } catch (InstantiationException e) {
+                e.printStackTrace();
+            }
+        }
 
         return query;
     }
@@ -382,21 +416,12 @@ public class Parser {
 
         lp.addScan(id, name);
         if (s.getWhere() != null)
-            processExpression(curtrans.getId(), (ZExpression) s.getWhere(), lp);
+            processExpression(tid, (ZExpression) s.getWhere(), lp);
         lp.addProjectField("null.*", null);
 
         DbIterator op = new Delete(tid, lp.physicalPlan(tid,
                 TableStats.getStatsMap(), false));
         sdbq.setPhysicalPlan(op);
-        // XXX print field names
-        //
-        // sdbq.start();
-        // System.out.print("Deleted ");
-        // while (sdbq.hasNext()) {
-        // Tuple tup = sdbq.next();
-        // System.out.println(tup);
-        // }
-        // sdbq.close();
 
         return sdbq;
 
@@ -406,17 +431,35 @@ public class Parser {
             throws TransactionAbortedException, DbException, IOException,
             simpledb.ParsingException, Zql.ParseException {
         if (s.getStmtType().equals("COMMIT")) {
+            if (curtrans == null)
+                throw new simpledb.ParsingException(
+                        "No transaction is currently running");
             curtrans.commit();
             curtrans = null;
-            System.out.println("Transaction committed.");
+            inUserTrans = false;
+            System.out.println("Transaction " + curtrans.getId().getId()
+                    + " committed.");
         } else if (s.getStmtType().equals("ROLLBACK")) {
+            if (curtrans == null)
+                throw new simpledb.ParsingException(
+                        "No transaction is currently running");
             curtrans.abort();
             curtrans = null;
-            System.out.println("Transaction aborted.");
+            inUserTrans = false;
+            System.out.println("Transaction " + curtrans.getId().getId()
+                    + " aborted.");
 
+        } else if (s.getStmtType().equals("SET TRANSACTION")) {
+            if (curtrans != null)
+                throw new simpledb.ParsingException(
+                        "Can't start new transactions until current transaction has been committed or rolledback.");
+            curtrans = new Transaction();
+            curtrans.start();
+            inUserTrans = true;
+            System.out.println("Started a new transaction tid = "
+                    + curtrans.getId().getId());
         } else {
-            throw new simpledb.ParsingException(
-                    "Can't start new transactions until current transaction has been committed or rolledback.");
+            throw new simpledb.ParsingException("Unsupported operation");
         }
     }
 
@@ -466,20 +509,58 @@ public class Parser {
             Query query = null;
             if (s instanceof ZTransactStmt)
                 handleTransactStatement((ZTransactStmt) s);
-            else if (s instanceof ZInsert)
-                query = handleInsertStatement((ZInsert) s, curtrans.getId());
-            else if (s instanceof ZDelete)
-                query = handleDeleteStatement((ZDelete) s, curtrans.getId());
-            else if (s instanceof ZQuery)
-                query = handleQueryStatement((ZQuery) s, curtrans.getId());
             else {
-                System.out
-                        .println("Can't parse "
-                                + s
-                                + "\n -- parser only handles SQL transactions, insert, delete, and select statements");
+                if (!this.inUserTrans) {
+                    curtrans = new Transaction();
+                    curtrans.start();
+                    System.out.println("Started a new transaction tid = "
+                            + curtrans.getId().getId());
+                }
+                try {
+                    if (s instanceof ZInsert)
+                        query = handleInsertStatement((ZInsert) s,
+                                curtrans.getId());
+                    else if (s instanceof ZDelete)
+                        query = handleDeleteStatement((ZDelete) s,
+                                curtrans.getId());
+                    else if (s instanceof ZQuery)
+                        query = handleQueryStatement((ZQuery) s,
+                                curtrans.getId());
+                    else {
+                        System.out
+                                .println("Can't parse "
+                                        + s
+                                        + "\n -- parser only handles SQL transactions, insert, delete, and select statements");
+                    }
+                    if (query != null)
+                        query.execute();
+
+                    if (!inUserTrans && curtrans != null) {
+                        curtrans.commit();
+                        System.out.println("Transaction "
+                                + curtrans.getId().getId() + " committed.");
+                    }
+                } catch (Throwable a) {
+                    // Whenever error happens, abort the current transaction
+                    if (curtrans != null) {
+                        curtrans.abort();
+                        System.out.println("Transaction "
+                                + curtrans.getId().getId()
+                                + " aborted because of unhandled error");
+                    }
+                    this.inUserTrans = false;
+
+                    if (a instanceof simpledb.ParsingException
+                            || a instanceof Zql.ParseException)
+                        throw new ParsingException((Exception) a);
+                    if (a instanceof Zql.TokenMgrError)
+                        throw (Zql.TokenMgrError) a;
+                    throw new DbException(a.getMessage());
+                } finally {
+                    if (!inUserTrans)
+                        curtrans = null;
+                }
             }
-            if (query != null)
-                query.execute();
 
         } catch (TransactionAbortedException e) {
             e.printStackTrace();
@@ -551,8 +632,8 @@ public class Parser {
         }
         if (!interactive) {
             try {
-                curtrans = new Transaction();
-                curtrans.start();
+                // curtrans = new Transaction();
+                // curtrans.start();
                 long startTime = System.currentTimeMillis();
                 processNextStatement(new FileInputStream(new File(queryFile)));
                 long time = System.currentTimeMillis() - startTime;
@@ -585,28 +666,22 @@ public class Parser {
                     int split = line.indexOf(';');
                     buffer.append(line.substring(0, split + 1));
                     String cmd = buffer.toString().trim();
-                    cmd=cmd.substring(0,cmd.length()-1).trim()+";";
+                    cmd = cmd.substring(0, cmd.length() - 1).trim() + ";";
                     byte[] statementBytes = cmd.getBytes("UTF-8");
-                    if (cmd.equalsIgnoreCase("quit;") || cmd.equalsIgnoreCase("exit;")) {
+                    if (cmd.equalsIgnoreCase("quit;")
+                            || cmd.equalsIgnoreCase("exit;")) {
                         shutdown();
                         quit = true;
                         break;
                     }
-                    // create a transaction for the query
-                    if (curtrans == null) {
-                        curtrans = new Transaction();
-                        curtrans.start();
-                        System.out.println("Started a new transaction tid = "
-                                + curtrans.getId().getId());
-                    }
+
                     long startTime = System.currentTimeMillis();
                     processNextStatement(new ByteArrayInputStream(
                             statementBytes));
                     long time = System.currentTimeMillis() - startTime;
                     System.out.printf("----------------\n%.2f seconds\n\n",
                             ((double) time / 1000.0));
-                    curtrans.commit();
-                    curtrans=null;
+
                     // Grab the remainder of the line
                     line = line.substring(split + 1);
                     buffer = new StringBuilder();

@@ -431,4 +431,6 @@ public class LogTest extends SimpleDbTestBase {
     public static junit.framework.Test suite() {
         return new junit.framework.JUnit4TestAdapter(LogTest.class);
     }
+    
+    // some code goes here
 }

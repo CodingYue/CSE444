@@ -7,7 +7,7 @@ public class LogicalScanNode {
     /** The name (alias) of the table as it is used in the query */
     public String alias;
 
-    /** The table identifier (can be passed to {@link Catalog#getDbFile})
+    /** The table identifier (can be passed to {@link Catalog#getDatabaseFile})
      *   to retrieve a DbFile */
     public int t;
 

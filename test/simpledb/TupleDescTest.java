@@ -1,5 +1,7 @@
 package simpledb;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.NoSuchElementException;
 
 import org.junit.Test;
@@ -167,6 +169,7 @@ public class TupleDescTest extends SimpleDbTestBase {
         assertFalse(intString.equals(singleInt2));
     }
 
+	// some code goes here
     /**
      * JUnit suite target
      */
