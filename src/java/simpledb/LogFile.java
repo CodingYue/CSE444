@@ -460,25 +460,30 @@ public class LogFile {
 
      @param tid The transaction to rollback
      */
-    public void rollback(TransactionId tid)
+    public void rollback(TransactionId tid) throws NoSuchElementException, IOException {
+        rollback(tid.getId());
+    }
+
+    private void rollback(long tid)
             throws NoSuchElementException, IOException {
         synchronized (Database.getBufferPool()) {
             synchronized(this) {
                 preAppend();
-                if (tidToFirstLogRecord.containsKey(tid.getId())) {
-                    for (long offset = currentOffset; offset > tidToFirstLogRecord.get(tid.getId()); ) {
+                long tempOffset = raf.getFilePointer();
+                if (tidToFirstLogRecord.containsKey(tid)) {
+                    for (long offset = currentOffset; offset > tidToFirstLogRecord.get(tid); ) {
                         raf.seek(offset-LONG_SIZE);
                         offset = raf.readLong();
                         raf.seek(offset);
                         int recordType = raf.readInt();
                         long recordTid = raf.readLong();
-                        if (recordType == UPDATE_RECORD && tid.getId() == recordTid) {
+                        if (recordType == UPDATE_RECORD && tid == recordTid) {
                             Page before = readPageData(raf);
                             Database.getCatalog().getDatabaseFile(before.getId().getTableId()).writePage(before);
                         }
                     }
                 }
-                raf.seek(currentOffset);
+                raf.seek(tempOffset);
             }
         }
     }
@@ -509,7 +514,6 @@ public class LogFile {
                 raf.seek(0);
                 long checkpointOffset = raf.readLong();
                 if (checkpointOffset != NO_CHECKPOINT_ID) {
-                    System.out.println("this " + this + "checkpoint offset: " + checkpointOffset + ", length : " + raf.length());
                     raf.seek(checkpointOffset);
                     int recordType = raf.readInt();
                     if (recordType != CHECKPOINT_RECORD) {
@@ -524,49 +528,37 @@ public class LogFile {
                     }
                     raf.readLong();
                 }
-                currentOffset = raf.getFilePointer();
-                Map<Long, Page> firstSeenPage = new HashMap<Long, Page>();
-                while (currentOffset < raf.length()) {
+                raf.seek(raf.length());
+                Set<Long> completedTransactions = new HashSet<Long>();
+                for (long offset = raf.length(); offset > LONG_SIZE; ) {
+                    raf.seek(offset - LONG_SIZE);
+                    offset = raf.readLong();
+                    raf.seek(offset);
                     int recordType = raf.readInt();
-
-//                        System.out.println("record type : " + recordType);
                     long recordTid = raf.readLong();
                     switch (recordType) {
-                        case BEGIN_RECORD:
-                            tidToFirstLogRecord.put(recordTid, currentOffset);
+                        case COMMIT_RECORD:
+                            completedTransactions.add(recordTid);
                             break;
                         case ABORT_RECORD:
-                            if (firstSeenPage.containsKey(recordTid)) {
-                                Page firstPage = firstSeenPage.get(recordTid);
-                                Database.getCatalog().getDatabaseFile(
-                                        firstPage.getId().getTableId()).writePage(firstPage);
-                            }
-                            firstSeenPage.remove(recordTid);
-                            tidToFirstLogRecord.remove(recordTid);
-                            break;
-                        case COMMIT_RECORD:
-                            firstSeenPage.remove(recordTid);
-                            tidToFirstLogRecord.remove(recordTid);
+                            completedTransactions.add(recordTid);
                             break;
                         case UPDATE_RECORD:
-                            Page before = readPageData(raf);
-                            Page after = readPageData(raf);
-                            Database.getCatalog().getDatabaseFile(after.getId().getTableId()).writePage(after);
-                            if (!firstSeenPage.containsKey(recordTid)) {
-                                firstSeenPage.put(recordTid, before);
+                            if (!completedTransactions.contains(recordTid)) {
+                                Page before = readPageData(raf);
+                                Database.getCatalog().getDatabaseFile(before.getId().getTableId()).writePage(before);
                             }
                             break;
+                        case BEGIN_RECORD:
+                            break;
                         case CHECKPOINT_RECORD:
-//                                System.out.println("Here");
-                            throw new IOException();
+                            break;
                         default:
-                            System.out.println("record type " + recordType);
                             throw new IOException();
                     }
-                    raf.readLong();
-                    currentOffset = raf.getFilePointer();
+                    raf.seek(raf.length());
+                    currentOffset = raf.length();
                 }
-
             }
         }
     }
