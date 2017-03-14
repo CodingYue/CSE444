@@ -292,11 +292,6 @@ public class BufferPool {
                 }
             }
         }
-        if (commit) {
-            Database.getLogFile().logCommit(tid);
-        } else {
-            Database.getLogFile().logAbort(tid);
-        }
         transactionComplete(tid);
     }
 
