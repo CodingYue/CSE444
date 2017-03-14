@@ -49,7 +49,7 @@ public class HeapFile implements DbFile {
      * @return an ID uniquely identifying this HeapFile.
      */
     public int getId() {
-        return file.hashCode();
+        return file.getAbsoluteFile().hashCode();
     }
 
     /**

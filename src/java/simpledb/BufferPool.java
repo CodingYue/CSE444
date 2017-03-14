@@ -1,5 +1,6 @@
 package simpledb;
 
+import javax.xml.crypto.Data;
 import java.awt.image.DataBuffer;
 import java.io.*;
 import java.util.*;
@@ -267,6 +268,9 @@ public class BufferPool {
                 }
                 if (commit) {
                     flushPage(pid);
+
+                    Page page = pagePool[pageIdToCachedIndex.get(pid)];
+                    page.setBeforeImage();
                 } else {
                     pagePool[pageIdToCachedIndex.get(pid)] = null;
                     idlePagePoolIndex.add(pageIdToCachedIndex.get(pid));
@@ -274,6 +278,11 @@ public class BufferPool {
                     latestUsedTimestamp.remove(pid);
                 }
             }
+        }
+        if (commit) {
+            Database.getLogFile().logCommit(tid);
+        } else {
+            Database.getLogFile().logAbort(tid);
         }
         transactionComplete(tid);
     }
@@ -351,7 +360,10 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         DbFile file = Database.getCatalog().getDbFile(pid.getTableId());
         Page page = pagePool[pageIdToCachedIndex.get(pid)];
-        if (page.isDirty() != null) {
+        TransactionId dirtier = page.isDirty();
+        if (dirtier != null) {
+            Database.getLogFile().logWrite(dirtier, page.getBeforeImage(), page);
+            Database.getLogFile().force();
             file.writePage(page);
             page.markDirty(false, null);
         }
