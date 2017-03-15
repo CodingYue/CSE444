@@ -18,6 +18,12 @@ public class ShuffleProducer extends Producer {
 
     private static final long serialVersionUID = 1L;
 
+    private final ParallelOperatorID operatorID;
+    private final SocketInfo[] workers;
+
+    private PartitionFunction<?, ?> pf;
+    private DbIterator child;
+
     public String getName() {
         return "shuffle_p";
     }
@@ -25,21 +31,22 @@ public class ShuffleProducer extends Producer {
     public ShuffleProducer(DbIterator child, ParallelOperatorID operatorID,
             SocketInfo[] workers, PartitionFunction<?, ?> pf) {
         super(operatorID);
-        // some code goes here
+        this.child = child;
+        this.operatorID = operatorID;
+        this.workers = workers;
+        this.pf = pf;
     }
 
     public void setPartitionFunction(PartitionFunction<?, ?> pf) {
-        // some code goes here
+        this.pf = pf;
     }
 
     public SocketInfo[] getWorkers() {
-        // some code goes here
-        return null;
+        return workers;
     }
 
     public PartitionFunction<?, ?> getPartitionFunction() {
-        // some code goes here
-        return null;
+        return pf;
     }
 
     // some code goes here
@@ -52,38 +59,39 @@ public class ShuffleProducer extends Producer {
 
     @Override
     public void open() throws DbException, TransactionAbortedException {
-        // some code goes here
+        super.open();
+        child.open();
     }
 
     public void close() {
-        // some code goes here
+        super.close();
+        child.close();
     }
 
     @Override
     public void rewind() throws DbException, TransactionAbortedException {
-        throw new UnsupportedOperationException();
+        close();
+        open();
     }
 
     @Override
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        return child.getTupleDesc();
     }
 
     @Override
     protected Tuple fetchNext() throws DbException, TransactionAbortedException {
-        // some code goes here
-        return null;
+        return child.hasNext() ? child.next() : null;
     }
 
     @Override
     public DbIterator[] getChildren() {
-        // some code goes here
-        return null;
+        return new DbIterator[]{child};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        // some code goes here
+        assert children.length == 1;
+        this.child = children[0];
     }
 }

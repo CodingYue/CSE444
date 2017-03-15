@@ -20,6 +20,8 @@ import simpledb.TupleDesc;
 
 import simpledb.parallel.Exchange.ParallelOperatorID;
 
+import javax.xml.crypto.Data;
+
 /**
  * Workers do the real query execution. A query received by the server will be
  * pre-processed and then dispatched to the workers.
@@ -209,14 +211,26 @@ public class Worker {
      * */
     public void localizeQueryPlan(DbIterator queryPlan) {
         if (queryPlan instanceof SeqScan) {
-            int tableId = Database.getCatalog().getTableId(((SeqScan) queryPlan).getTableName());
-            ((SeqScan) queryPlan).reset(tableId, ((SeqScan) queryPlan).getAlias());
+            SeqScan seqScan = (SeqScan) queryPlan;
+            System.out.println("Alias = " + seqScan.getAlias());
+            seqScan.reset(Database.getCatalog().getTableId(seqScan.getAlias()),
+                    seqScan.getAlias());
+//            seqScan.reset();
+//            ((SeqScan) queryPlan).reset(tableId, ((SeqScan) queryPlan).getAlias());
+//            return;
         }
-        if (queryPlan instanceof Producer) {
-            ((Producer) queryPlan).setThisWorker(this);
-        }
-        if (queryPlan instanceof Consumer) {
-            ((Consumer) queryPlan).setBuffer(inBuffer.get(((Consumer) queryPlan).getOperatorID()));
+        if (queryPlan instanceof Operator) {
+            if (queryPlan instanceof Producer) {
+                ((Producer) queryPlan).setThisWorker(this);
+            }
+            if (queryPlan instanceof Consumer) {
+                ((Consumer) queryPlan).setBuffer(inBuffer.get(((Consumer) queryPlan).getOperatorID()));
+            }
+            DbIterator[] children = ((Operator) queryPlan).getChildren();
+            for (DbIterator child : children) {
+                localizeQueryPlan(child);
+            }
+            ((Operator) queryPlan).setChildren(children);
         }
     }
 

@@ -20,6 +20,11 @@ public class ShuffleConsumer extends Consumer {
 
     private static final long serialVersionUID = 1L;
 
+    private final ParallelOperatorID operatorID;
+    private final SocketInfo[] workers;
+
+    private DbIterator child;
+
     public String getName() {
         return "shuffle_c";
     }
@@ -31,29 +36,32 @@ public class ShuffleConsumer extends Consumer {
     public ShuffleConsumer(ShuffleProducer child,
             ParallelOperatorID operatorID, SocketInfo[] workers) {
         super(operatorID);
-        // some code goes here
+        this.child = child;
+        this.workers = workers;
+        this.operatorID = operatorID;
     }
 
     @Override
     public void open() throws DbException, TransactionAbortedException {
-        // some code goes here
+        super.open();
+        child.open();
     }
 
     @Override
     public void rewind() throws DbException, TransactionAbortedException {
-        // some code goes here
+        close();
+        open();
     }
 
     @Override
     public void close() {
-        // some code goes here
+        super.close();
+        child.close();
     }
 
     @Override
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
-
+        return child.getTupleDesc();
     }
 
     /**
@@ -66,25 +74,23 @@ public class ShuffleConsumer extends Consumer {
      *         of file message.
      */
     Iterator<Tuple> getTuples() throws InterruptedException {
-        // some code goes here
         return null;
     }
 
     @Override
     protected Tuple fetchNext() throws DbException, TransactionAbortedException {
-        // some code goes here
-        return null;
+        return child.hasNext() ? child.next() : null;
     }
 
     @Override
     public DbIterator[] getChildren() {
-        // some code goes here
-        return null;
+        return new DbIterator[]{child};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        // some code goes here
+        assert children.length == 1;
+        child = children[0];
     }
 
 }
