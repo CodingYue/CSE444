@@ -13,16 +13,10 @@ import org.apache.mina.core.session.IoSession;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 
 import java.util.NoSuchElementException;
-import simpledb.DbException;
+
+import simpledb.*;
 import simpledb.Tuple;
 import simpledb.TupleDesc;
-import simpledb.TransactionAbortedException;
-import simpledb.Tuple;
-import simpledb.TupleDesc;
-import simpledb.Operator;
-import simpledb.Database;
-import simpledb.DbIterator;
-import simpledb.QueryPlanVisualizer;
 
 import simpledb.parallel.Exchange.ParallelOperatorID;
 
@@ -214,7 +208,16 @@ public class Worker {
      * information.
      * */
     public void localizeQueryPlan(DbIterator queryPlan) {
-        // some code goes here
+        if (queryPlan instanceof SeqScan) {
+            int tableId = Database.getCatalog().getTableId(((SeqScan) queryPlan).getTableName());
+            ((SeqScan) queryPlan).reset(tableId, ((SeqScan) queryPlan).getAlias());
+        }
+        if (queryPlan instanceof Producer) {
+            ((Producer) queryPlan).setThisWorker(this);
+        }
+        if (queryPlan instanceof Consumer) {
+            ((Consumer) queryPlan).setBuffer(inBuffer.get(((Consumer) queryPlan).getOperatorID()));
+        }
     }
 
     /**

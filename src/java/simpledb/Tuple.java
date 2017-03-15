@@ -15,7 +15,7 @@ public class Tuple implements Serializable {
 
     private TupleDesc tupleDesc;
     private RecordId recordId;
-    private final Field[] fields;
+    private Field[] fields;
 
     public static Tuple merge(Tuple t1, Tuple t2) {
         Tuple tuple = new Tuple(TupleDesc.merge(t1.getTupleDesc(), t2.getTupleDesc()));
@@ -35,6 +35,11 @@ public class Tuple implements Serializable {
      */
     public Tuple(TupleDesc td) {
         tupleDesc = td;
+        fields = new Field[td.numFields()];
+    }
+
+    public void resetTupleDesc(TupleDesc td) {
+        this.tupleDesc = td;
         fields = new Field[td.numFields()];
     }
 

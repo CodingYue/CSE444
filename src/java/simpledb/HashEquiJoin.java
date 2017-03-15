@@ -9,54 +9,68 @@ public class HashEquiJoin extends Operator {
 
     private static final long serialVersionUID = 1L;
 
+    private final JoinPredicate predicate;
+    private DbIterator child1;
+    private DbIterator child2;
+
+    private final TupleDesc td;
+
+    private Tuple tuple1;
+
     /**
      * Constructor. Accepts to children to join and the predicate to join them
      * on
      * 
-     * @param p
+     * @param predicate
      *            The predicate to use to join the children
      * @param child1
      *            Iterator for the left(outer) relation to join
      * @param child2
      *            Iterator for the right(inner) relation to join
      */
-    public HashEquiJoin(JoinPredicate p, DbIterator child1, DbIterator child2) {
-        // some code goes here
+    public HashEquiJoin(JoinPredicate predicate, DbIterator child1, DbIterator child2) {
+        this.predicate = predicate;
+        this.child1 = child1;
+        this.child2 = child2;
+        td = TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
     }
 
     public JoinPredicate getJoinPredicate() {
-        // some code goes here
-        return null;
+        return predicate;
     }
 
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        return td;
     }
     
     public String getJoinField1Name()
     {
-        // some code goes here
-	return null;
+        return child1.getTupleDesc().getFieldName(predicate.getField1());
     }
 
     public String getJoinField2Name()
     {
-        // some code goes here
-        return null;
+        return child2.getTupleDesc().getFieldName(predicate.getField2());
     }
     
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
-        // some code goes here
+        super.open();
+        child1.open();
+        child2.open();
+        tuple1 = null;
     }
 
     public void close() {
-        // some code goes here
+        super.close();
+        child1.close();
+        child2.close();
+        tuple1 = null;
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        // some code goes here
+        close();
+        open();
     }
 
     transient Iterator<Tuple> listIt = null;
@@ -80,19 +94,35 @@ public class HashEquiJoin extends Operator {
      * @see JoinPredicate#filter
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
-        // some code goes here
-        return null;
+        while (true) {
+            if (tuple1 == null) {
+                if (child1.hasNext()) {
+                    tuple1 = child1.next();
+                    child2.rewind();
+                } else {
+                    return null;
+                }
+            }
+            while (child2.hasNext()) {
+                Tuple tuple2 = child2.next();
+                if (predicate.filter(tuple1, tuple2)) {
+                    return Tuple.merge(tuple1, tuple2);
+                }
+            }
+            tuple1 = null;
+        }
     }
 
     @Override
     public DbIterator[] getChildren() {
-        // some code goes here
-        return null;
+        return new DbIterator[]{child1, child2};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        // some code goes here
+        assert children.length == 2;
+        child1 = children[0];
+        child2 = children[1];
     }
     
 }

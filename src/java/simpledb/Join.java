@@ -13,6 +13,8 @@ public class Join extends Operator {
     private final DbIterator child1;
     private final DbIterator child2;
 
+    private final TupleDesc td;
+
     private Tuple tuple1;
 
     private DbIterator[] children;
@@ -32,6 +34,7 @@ public class Join extends Operator {
         this.predicate = predicate;
         this.child1 = child1;
         this.child2 = child2;
+        td = TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
     }
 
     public JoinPredicate getJoinPredicate() {
@@ -61,7 +64,7 @@ public class Join extends Operator {
      *      implementation logic.
      */
     public TupleDesc getTupleDesc() {
-        return TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
+        return td;
     }
 
     @Override
