@@ -53,7 +53,7 @@ public class Worker {
                 query = Worker.this.queryPlan;
                 // }
                 if (query != null) {
-                    System.out.println("Worker start processing query");
+                    System.out.println("Worker start processing query, query = " + query);
                     try {
                         queryPlan.open();
                         while (queryPlan.hasNext()) {
@@ -215,11 +215,8 @@ public class Worker {
     public void localizeQueryPlan(DbIterator queryPlan) {
         if (queryPlan instanceof SeqScan) {
             SeqScan seqScan = (SeqScan) queryPlan;
-            seqScan.reset(Database.getCatalog().getTableId(seqScan.getAlias()),
+            seqScan.reset(Database.getCatalog().getTableId(seqScan.getTableName()),
                     seqScan.getAlias());
-//            seqScan.reset();
-//            ((SeqScan) queryPlan).reset(tableId, ((SeqScan) queryPlan).getAlias());
-//            return;
         }
         if (queryPlan instanceof Operator) {
             if (queryPlan instanceof Producer) {
@@ -304,9 +301,10 @@ public class Worker {
      * This method should be called when a data item is received
      * */
     public void receiveData(ExchangeMessage data) {
-        if (data instanceof TupleBag)
+        if (data instanceof TupleBag) {
             System.out.println("TupleBag received from " + data.getWorkerID()
                     + " to Operator: " + data.getOperatorID());
+        }
         else if (data instanceof BloomFilterBitSet)
             System.out.println("BitSet received from " + data.getWorkerID()
                     + " to Operator: " + data.getOperatorID());

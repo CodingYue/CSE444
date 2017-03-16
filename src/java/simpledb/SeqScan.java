@@ -15,6 +15,7 @@ public class SeqScan implements DbIterator {
 
     private int tableId;
     private String tableAlias;
+    private String tableName;
     private transient DbFileIterator tableIterator;
 
     /**
@@ -37,6 +38,7 @@ public class SeqScan implements DbIterator {
         this.tid = tid;
         this.tableId = tableid;
         this.tableAlias = tableAlias;
+        this.tableName = Database.getCatalog().getTableName(tableid);
     }
 
     /**
@@ -45,7 +47,7 @@ public class SeqScan implements DbIterator {
      *       be the actual name of the table in the catalog of the database
      * */
     public String getTableName() {
-        return Database.getCatalog().getTableName(tableId);
+        return this.tableName;
     }
     
     /**
@@ -71,6 +73,7 @@ public class SeqScan implements DbIterator {
     public void reset(int tableid, String tableAlias) {
         this.tableId = tableid;
         this.tableAlias = tableAlias;
+        this.tableName = Database.getCatalog().getTableName(tableid);
     }
 
     public SeqScan(TransactionId tid, int tableid) {

@@ -1,6 +1,7 @@
 package simpledb.parallel;
 
-import java.util.Iterator;
+import java.util.*;
+
 import simpledb.DbException;
 import simpledb.DbIterator;
 import simpledb.TransactionAbortedException;
@@ -20,11 +21,22 @@ public class ShuffleConsumer extends Consumer {
 
     private static final long serialVersionUID = 1L;
 
-    private final ParallelOperatorID operatorID;
-    private final SocketInfo[] workers;
+    /**
+     * innerBufferIndex and innerBuffer are used to buffer
+     * all the TupleBags this operator has received. We need
+     * this because we need to support rewind.
+     * */
+    private transient int innerBufferIndex;
+    private transient ArrayList<TupleBag> innerBuffer;
 
+
+    private TupleDesc td;
     private DbIterator child;
-    private Iterator<Tuple> tuples;
+    private final BitSet workerEOS;
+    private final SocketInfo[] workers;
+    private final Map<String, Integer> workerIdToIndex;
+
+    private transient Iterator<Tuple> tuples;
 
     public String getName() {
         return "shuffle_c";
@@ -39,13 +51,30 @@ public class ShuffleConsumer extends Consumer {
         super(operatorID);
         this.child = child;
         this.workers = workers;
-        this.operatorID = operatorID;
+        if (child != null) {
+            this.td = child.getTupleDesc();
+        }
+        workerIdToIndex = new HashMap<String, Integer>();
+        int idx = 0;
+        for (SocketInfo w : workers) {
+            this.workerIdToIndex.put(w.getId(), idx++);
+        }
+        this.workerEOS = new BitSet(workers.length);
     }
 
     @Override
     public void open() throws DbException, TransactionAbortedException {
         super.open();
-        child.open();
+        this.tuples = null;
+        this.innerBuffer = new ArrayList<TupleBag>();
+        this.innerBufferIndex = 0;
+        if (this.child != null) {
+            this.child.open();
+        }
+        super.open();
+        if (child != null) {
+            child.open();
+        }
     }
 
     @Override
@@ -57,12 +86,19 @@ public class ShuffleConsumer extends Consumer {
     @Override
     public void close() {
         super.close();
-        child.close();
+        this.setBuffer(null);
+        this.tuples = null;
+        this.innerBufferIndex = -1;
+        this.innerBuffer = null;
+        this.workerEOS.clear();
+        if (child != null) {
+            child.close();
+        }
     }
 
     @Override
     public TupleDesc getTupleDesc() {
-        return child.getTupleDesc();
+        return this.td;
     }
 
     /**
@@ -75,12 +111,38 @@ public class ShuffleConsumer extends Consumer {
      *         of file message.
      */
     Iterator<Tuple> getTuples() throws InterruptedException {
+        if (innerBufferIndex < innerBuffer.size()) {
+            return this.innerBuffer.get(this.innerBufferIndex++).iterator();
+        }
+        while (this.workerEOS.nextClearBit(0) < this.workers.length) {
+            TupleBag tb = (TupleBag) this.take(-1);
+            if (tb.isEos()) {
+                workerEOS.set(workerIdToIndex.get(tb.getWorkerID()));
+            } else {
+                innerBuffer.add(tb);
+                innerBufferIndex++;
+                return tb.iterator();
+            }
+        }
         return null;
     }
 
+
+
     @Override
     protected Tuple fetchNext() throws DbException, TransactionAbortedException {
-        return child.hasNext() ? child.next() : null;
+        while (tuples == null || !tuples.hasNext()) {
+            try {
+                tuples = getTuples();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                throw new DbException(e.getLocalizedMessage());
+            }
+            if (tuples == null) {
+                return null;
+            }
+        }
+        return tuples.next();
     }
 
     @Override
@@ -92,6 +154,7 @@ public class ShuffleConsumer extends Consumer {
     public void setChildren(DbIterator[] children) {
         assert children.length == 1;
         child = children[0];
+        td = child.getTupleDesc();
     }
 
 }

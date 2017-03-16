@@ -1,10 +1,18 @@
 package simpledb.parallel;
 
+import org.apache.mina.core.future.IoFutureListener;
+import org.apache.mina.core.future.WriteFuture;
+import org.apache.mina.core.session.IoSession;
 import simpledb.DbException;
 import simpledb.DbIterator;
 import simpledb.TransactionAbortedException;
 import simpledb.Tuple;
 import simpledb.TupleDesc;
+
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * The producer part of the Shuffle Exchange operator.
@@ -23,6 +31,8 @@ public class ShuffleProducer extends Producer {
 
     private PartitionFunction<?, ?> pf;
     private DbIterator child;
+
+    private WorkingThread runningThread;
 
     public String getName() {
         return "shuffle_p";
@@ -49,11 +59,76 @@ public class ShuffleProducer extends Producer {
         return pf;
     }
 
-    // some code goes here
     class WorkingThread extends Thread {
         public void run() {
 
-            // some code goes here
+            Map<String, IoSession> workerIdToSession = new HashMap<String, IoSession>();
+            Map<String, ArrayList<Tuple>> workerIdToBuffer = new HashMap<String, ArrayList<Tuple>>();
+            Map<String, Long> workerIdToLastTime = new HashMap<String, Long>();
+            try {
+                while (child.hasNext()) {
+                    Tuple tup = child.next();
+                    int partition = pf.partition(tup, child.getTupleDesc());
+                    SocketInfo consumerWorker = workers[partition];
+                    if (!workerIdToSession.containsKey(consumerWorker.getId())) {
+                        workerIdToSession.put(consumerWorker.getId(), ParallelUtility.createSession(
+                                consumerWorker.getAddress(), getThisWorker().minaHandler, -1));
+                        workerIdToBuffer.put(consumerWorker.getId(), new ArrayList<Tuple>());
+                        workerIdToLastTime.put(consumerWorker.getId(), System.currentTimeMillis());
+                    }
+                    ArrayList<Tuple> buffer = workerIdToBuffer.get(consumerWorker.getId());
+                    IoSession session = workerIdToSession.get(consumerWorker.getId());
+                    long lastTime = workerIdToLastTime.get(consumerWorker.getId());
+                    buffer.add(tup);
+                    if (buffer.size() >= TupleBag.MAX_SIZE) {
+                        session.write(new TupleBag(
+                                operatorID,
+                                getThisWorker().workerID,
+                                buffer.toArray(new Tuple[] {}),
+                                getTupleDesc()));
+                        buffer.clear();
+                        lastTime = System.currentTimeMillis();
+                    }
+                    if (buffer.size() >= TupleBag.MIN_SIZE) {
+                        long thisTime = System.currentTimeMillis();
+                        if (thisTime - lastTime > TupleBag.MAX_MS) {
+                            session.write(new TupleBag(
+                                    operatorID,
+                                    getThisWorker().workerID,
+                                    buffer.toArray(new Tuple[] {}),
+                                    getTupleDesc()));
+                            buffer.clear();
+                            lastTime = thisTime;
+                        }
+                    }
+                    workerIdToLastTime.put(consumerWorker.getId(), lastTime);
+                }
+                for (SocketInfo worker : workers) {
+                    System.out.println(workerIdToSession);
+                    if (workerIdToSession.containsKey(worker.getId())) {
+                        ArrayList<Tuple> buffer = workerIdToBuffer.get(worker.getId());
+                        IoSession session = workerIdToSession.get(worker.getId());
+                        if (buffer.size() > 0) {
+                            session.write(new TupleBag(
+                                    operatorID,
+                                    getThisWorker().workerID,
+                                    buffer.toArray(new Tuple[] {}),
+                                    getTupleDesc()));
+                        }
+                        session.write(new TupleBag(operatorID,
+                                getThisWorker().workerID)).addListener(new IoFutureListener<WriteFuture>(){
+                            @Override
+                            public void operationComplete(WriteFuture future) {
+                                ParallelUtility.closeSession(future.getSession());
+                            }});
+                    }
+                }
+            } catch (DbException e) {
+                e.printStackTrace();
+            } catch (TransactionAbortedException e) {
+                e.printStackTrace();
+            }
+            System.out.println("Shuffle Producer finished");
         }
     }
 
@@ -61,6 +136,8 @@ public class ShuffleProducer extends Producer {
     public void open() throws DbException, TransactionAbortedException {
         super.open();
         child.open();
+        runningThread = new WorkingThread();
+        runningThread.run();
     }
 
     public void close() {
@@ -81,7 +158,12 @@ public class ShuffleProducer extends Producer {
 
     @Override
     protected Tuple fetchNext() throws DbException, TransactionAbortedException {
-        return child.hasNext() ? child.next() : null;
+        try {
+            runningThread.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     @Override
