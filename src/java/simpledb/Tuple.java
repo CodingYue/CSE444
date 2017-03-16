@@ -40,7 +40,6 @@ public class Tuple implements Serializable {
 
     public void resetTupleDesc(TupleDesc td) {
         this.tupleDesc = td;
-        fields = new Field[td.numFields()];
     }
 
     /**

@@ -273,22 +273,24 @@ public class BufferPool {
      */
     public void transactionComplete(TransactionId tid, boolean commit)
         throws IOException {
-        Set<PageId> pages = lockManager.pageLockedByTid(tid);
         synchronized (LOCK) {
-            for (PageId pid : pages) {
-                if (!pageIdToCachedIndex.containsKey(pid)) {
-                    continue;
-                }
-                if (commit) {
-                    flushPage(pid);
+            Set<PageId> pages = lockManager.pageLockedByTid(tid);
+            if (pages != null) {
+                for (PageId pid : pages) {
+                    if (!pageIdToCachedIndex.containsKey(pid)) {
+                        continue;
+                    }
+                    if (commit) {
+                        flushPage(pid);
 
-                    Page page = pagePool[pageIdToCachedIndex.get(pid)];
-                    page.setBeforeImage();
-                } else {
-                    pagePool[pageIdToCachedIndex.get(pid)] = null;
-                    idlePagePoolIndex.add(pageIdToCachedIndex.get(pid));
-                    pageIdToCachedIndex.remove(pid);
-                    latestUsedTimestamp.remove(pid);
+                        Page page = pagePool[pageIdToCachedIndex.get(pid)];
+                        page.setBeforeImage();
+                    } else {
+                        pagePool[pageIdToCachedIndex.get(pid)] = null;
+                        idlePagePoolIndex.add(pageIdToCachedIndex.get(pid));
+                        pageIdToCachedIndex.remove(pid);
+                        latestUsedTimestamp.remove(pid);
+                    }
                 }
             }
         }

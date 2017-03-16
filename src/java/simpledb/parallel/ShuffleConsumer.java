@@ -24,6 +24,7 @@ public class ShuffleConsumer extends Consumer {
     private final SocketInfo[] workers;
 
     private DbIterator child;
+    private Iterator<Tuple> tuples;
 
     public String getName() {
         return "shuffle_c";

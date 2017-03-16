@@ -12,15 +12,10 @@ import org.apache.mina.core.service.IoHandlerAdapter;
 import org.apache.mina.core.session.IoSession;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 
-import java.util.NoSuchElementException;
-
 import simpledb.*;
-import simpledb.Tuple;
-import simpledb.TupleDesc;
 
 import simpledb.parallel.Exchange.ParallelOperatorID;
 
-import javax.xml.crypto.Data;
 
 /**
  * Workers do the real query execution. A query received by the server will be
@@ -59,7 +54,15 @@ public class Worker {
                 // }
                 if (query != null) {
                     System.out.println("Worker start processing query");
-                    // Add some code here
+                    try {
+                        queryPlan.open();
+                        while (queryPlan.hasNext()) {
+                            queryPlan.next();
+                        }
+                        queryPlan.close();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                     Worker.this.finishQuery();
                 }
 
@@ -212,7 +215,6 @@ public class Worker {
     public void localizeQueryPlan(DbIterator queryPlan) {
         if (queryPlan instanceof SeqScan) {
             SeqScan seqScan = (SeqScan) queryPlan;
-            System.out.println("Alias = " + seqScan.getAlias());
             seqScan.reset(Database.getCatalog().getTableId(seqScan.getAlias()),
                     seqScan.getAlias());
 //            seqScan.reset();
@@ -285,7 +287,6 @@ public class Worker {
             return;
         }
 
-        new QueryPlanVisualizer().printQueryPlanTree(query, System.out);
         ArrayList<ParallelOperatorID> ids = new ArrayList<ParallelOperatorID>();
         collectConsumerOperatorIDs(query, ids);
         Worker.this.inBuffer.clear();
@@ -295,6 +296,7 @@ public class Worker {
         }
         // }
         Worker.this.localizeQueryPlan(query);
+        new QueryPlanVisualizer().printQueryPlanTree(query, System.out);
         Worker.this.queryPlan = query;
     }
 
