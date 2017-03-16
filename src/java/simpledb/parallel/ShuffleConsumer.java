@@ -71,16 +71,12 @@ public class ShuffleConsumer extends Consumer {
         if (this.child != null) {
             this.child.open();
         }
-        super.open();
-        if (child != null) {
-            child.open();
-        }
     }
 
     @Override
     public void rewind() throws DbException, TransactionAbortedException {
-        close();
-        open();
+        this.tuples = null;
+        this.innerBufferIndex = 0;
     }
 
     @Override

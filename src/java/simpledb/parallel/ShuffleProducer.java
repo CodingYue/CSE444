@@ -65,22 +65,21 @@ public class ShuffleProducer extends Producer {
             Map<String, IoSession> workerIdToSession = new HashMap<String, IoSession>();
             Map<String, ArrayList<Tuple>> workerIdToBuffer = new HashMap<String, ArrayList<Tuple>>();
             Map<String, Long> workerIdToLastTime = new HashMap<String, Long>();
+            for (SocketInfo worker : workers) {
+                workerIdToSession.put(worker.getId(), ParallelUtility.createSession(
+                        worker.getAddress(), getThisWorker().minaHandler, -1));
+                workerIdToBuffer.put(worker.getId(), new ArrayList<Tuple>());
+                workerIdToLastTime.put(worker.getId(), System.currentTimeMillis());
+            }
             try {
                 while (child.hasNext()) {
                     Tuple tup = child.next();
                     int partition = pf.partition(tup, child.getTupleDesc());
                     SocketInfo consumerWorker = workers[partition];
-                    if (!workerIdToSession.containsKey(consumerWorker.getId())) {
-                        workerIdToSession.put(consumerWorker.getId(), ParallelUtility.createSession(
-                                consumerWorker.getAddress(), getThisWorker().minaHandler, -1));
-                        workerIdToBuffer.put(consumerWorker.getId(), new ArrayList<Tuple>());
-                        workerIdToLastTime.put(consumerWorker.getId(), System.currentTimeMillis());
-                    }
                     ArrayList<Tuple> buffer = workerIdToBuffer.get(consumerWorker.getId());
                     IoSession session = workerIdToSession.get(consumerWorker.getId());
                     long lastTime = workerIdToLastTime.get(consumerWorker.getId());
                     buffer.add(tup);
-                    System.out.println("Send tuple " + tup);
                     if (buffer.size() >= TupleBag.MAX_SIZE) {
                         session.write(new TupleBag(
                                 operatorID,
@@ -105,24 +104,21 @@ public class ShuffleProducer extends Producer {
                     workerIdToLastTime.put(consumerWorker.getId(), lastTime);
                 }
                 for (SocketInfo worker : workers) {
-                    System.out.println(workerIdToSession);
-                    if (workerIdToSession.containsKey(worker.getId())) {
-                        ArrayList<Tuple> buffer = workerIdToBuffer.get(worker.getId());
-                        IoSession session = workerIdToSession.get(worker.getId());
-                        if (buffer.size() > 0) {
-                            session.write(new TupleBag(
-                                    operatorID,
-                                    getThisWorker().workerID,
-                                    buffer.toArray(new Tuple[] {}),
-                                    getTupleDesc()));
-                        }
-                        session.write(new TupleBag(operatorID,
-                                getThisWorker().workerID)).addListener(new IoFutureListener<WriteFuture>(){
-                            @Override
-                            public void operationComplete(WriteFuture future) {
-                                ParallelUtility.closeSession(future.getSession());
-                            }});
+                    ArrayList<Tuple> buffer = workerIdToBuffer.get(worker.getId());
+                    IoSession session = workerIdToSession.get(worker.getId());
+                    if (buffer.size() > 0) {
+                        session.write(new TupleBag(
+                                operatorID,
+                                getThisWorker().workerID,
+                                buffer.toArray(new Tuple[] {}),
+                                getTupleDesc()));
                     }
+                    session.write(new TupleBag(operatorID,
+                            getThisWorker().workerID)).addListener(new IoFutureListener<WriteFuture>(){
+                        @Override
+                        public void operationComplete(WriteFuture future) {
+                            ParallelUtility.closeSession(future.getSession());
+                        }});
                 }
             } catch (DbException e) {
                 e.printStackTrace();

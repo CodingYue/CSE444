@@ -133,7 +133,7 @@ echo "Start copying simpledb files to workers"
 for host in $workerHosts
 do
 	echo "Copying to $host"
-	ssh $host "export JAVA_HOME=`/usr/libexec/java_home -v '1.6*'`; java -version"
+	ssh $host "export JAVA_HOME=`/usr/libexec/java_home -v '1.8*'`; java -version"
 	ssh $host "mkdir -p /tmp/simpledb/data;mkdir /tmp/simpledb/bin;mkdir /tmp/simpledb/lib;mkdir /tmp/simpledb/conf"
 	rsync -a "$SIMPLEDB_ROOT/bin/" $host:/tmp/simpledb/bin
 	rsync -a "$SIMPLEDB_ROOT/lib/" $host:/tmp/simpledb/lib
@@ -205,7 +205,7 @@ do
 		#mac
 
 		osascript -e "tell app \"Terminal\"
-			do script \"echo -e \\\"\\\\033]0;Worker: $host:$port. Do not close this window when SimpleDB is running.\\\\007\\\"; ssh $host \\\"cd /tmp/simpledb; export JAVA_HOME=`/usr/libexec/java_home -v '1.6*'`; java -version;java -classpath \\\\\\\"bin/src:lib/*\\\\\\\" simpledb.parallel.Worker ${host}:$port $serverAddr \\\" \"
+			do script \"echo -e \\\"\\\\033]0;Worker: $host:$port. Do not close this window when SimpleDB is running.\\\\007\\\"; ssh $host \\\"cd /tmp/simpledb; export JAVA_HOME=`/usr/libexec/java_home -v '1.8*'`; java -version;java -classpath \\\\\\\"bin/src:lib/*\\\\\\\" simpledb.parallel.Worker ${host}:$port $serverAddr \\\" \"
 		end tell"
 	fi
 

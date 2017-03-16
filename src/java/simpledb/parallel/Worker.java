@@ -310,7 +310,7 @@ public class Worker {
                     + " to Operator: " + data.getOperatorID());
         LinkedBlockingQueue<ExchangeMessage> q = null;
         q = Worker.this.inBuffer.get(data.getOperatorID());
-
+        
         q.offer(data);
     }
 
