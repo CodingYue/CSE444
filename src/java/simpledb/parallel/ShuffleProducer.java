@@ -80,6 +80,7 @@ public class ShuffleProducer extends Producer {
                     IoSession session = workerIdToSession.get(consumerWorker.getId());
                     long lastTime = workerIdToLastTime.get(consumerWorker.getId());
                     buffer.add(tup);
+                    System.out.println("Send tuple " + tup);
                     if (buffer.size() >= TupleBag.MAX_SIZE) {
                         session.write(new TupleBag(
                                 operatorID,
@@ -137,6 +138,7 @@ public class ShuffleProducer extends Producer {
         super.open();
         child.open();
         runningThread = new WorkingThread();
+        System.out.println("Producer open " + this);
         runningThread.run();
     }
 
