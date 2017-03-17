@@ -97,7 +97,7 @@ public class IntegerAggregator implements Aggregator {
             if (what == Op.SUM_COUNT) {
                 tupleDesc = new TupleDesc(
                         new Type[]{gbFieldType, Type.INT_TYPE, Type.INT_TYPE},
-                        new String[]{groupFieldName, "SUM", "COUNT"});
+                        new String[]{groupFieldName, "sum", "count"});
             } else {
                 tupleDesc = new TupleDesc(
                         new Type[]{gbFieldType, Type.INT_TYPE},
@@ -107,7 +107,7 @@ public class IntegerAggregator implements Aggregator {
             if (what == Op.SUM_COUNT) {
                 tupleDesc = new TupleDesc(
                         new Type[]{Type.INT_TYPE, Type.INT_TYPE},
-                        new String[]{"SUM", "COUNT"});
+                        new String[]{"sum", "count"});
             } else {
                 tupleDesc = new TupleDesc(
                         new Type[]{Type.INT_TYPE},
@@ -136,6 +136,7 @@ public class IntegerAggregator implements Aggregator {
             case SC_AVG:
                 return new Integer[]{valueGroupedBy.get(group) / countGroupedBy.get(group)};
             case COUNT:
+                return new Integer[]{countGroupedBy.get(group)};
             case MAX:
             case MIN:
             case SUM:

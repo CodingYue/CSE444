@@ -94,7 +94,10 @@ public class ShuffleConsumer extends Consumer {
 
     @Override
     public TupleDesc getTupleDesc() {
-        return this.td;
+        if (child != null) {
+            td = child.getTupleDesc();
+        }
+        return td;
     }
 
     /**

@@ -48,7 +48,6 @@ public class Catalog {
         idToDbFile.put(file.getId(), file);
         idToTableName.put(file.getId(), name);
         idToPkeyField.put(file.getId(), pkeyField);
-        System.out.println("Add table, id " + file.getId() + ", name " + name);
     }
 
     public void addTable(DbFile file, String name) {
