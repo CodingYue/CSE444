@@ -54,17 +54,17 @@ public class IntegerAggregator implements Aggregator {
         Field groupField = gbFieldNo == NO_GROUPING ? new IntField(0): tup.getField(gbFieldNo);
         groupFieldName = gbFieldNo == NO_GROUPING ? null : tup.getTupleDesc().getFieldName(gbFieldNo);
         IntField aggregateField = (IntField) tup.getField(aggregateFieldNo);
+        int countAddition = what == Op.SC_AVG ? ((IntField) tup.getField(aggregateFieldNo+1)).getValue() : 1;
         if (!countGroupedBy.containsKey(groupField)) {
-            countGroupedBy.put(groupField, 1);
+            countGroupedBy.put(groupField, countAddition);
             valueGroupedBy.put(groupField, aggregateField.getValue());
         } else {
-            countGroupedBy.put(groupField, countGroupedBy.get(groupField)+1);
+            countGroupedBy.put(groupField, countGroupedBy.get(groupField)+countAddition);
             Integer value = valueGroupedBy.get(groupField);
             Integer aggregateValue = aggregateField.getValue();
             switch (what) {
                 case AVG:
-                    valueGroupedBy.put(groupField, value + aggregateValue);
-                    break;
+                case SUM_COUNT:
                 case SUM:
                     valueGroupedBy.put(groupField, value + aggregateValue);
                     break;
@@ -75,7 +75,6 @@ public class IntegerAggregator implements Aggregator {
                     valueGroupedBy.put(groupField, Math.min(value, aggregateValue));
                     break;
                 case COUNT:
-                    break;
                 default:
                     break;
             }
@@ -91,53 +90,61 @@ public class IntegerAggregator implements Aggregator {
      *         the constructor.
      */
     public DbIterator iterator() {
-        if (gbFieldNo != NO_GROUPING) {
-            TupleDesc tupleDesc = new TupleDesc(
-                    new Type[]{gbFieldType, Type.INT_TYPE},
-                    new String[]{groupFieldName, what.toString()});
-            ArrayList<Tuple> tuples = new ArrayList<Tuple>();
-            for (Field group : countGroupedBy.keySet()) {
+        boolean hasGroup = gbFieldNo != NO_GROUPING;
 
-                Tuple tuple = new Tuple(tupleDesc);
-                tuple.setField(0, group);
-                tuple.setField(1, new IntField(getAggregateValue(group)));
-                tuples.add(tuple);
+        TupleDesc tupleDesc;
+        if (hasGroup) {
+            if (what == Op.SUM_COUNT) {
+                tupleDesc = new TupleDesc(
+                        new Type[]{gbFieldType, Type.INT_TYPE, Type.INT_TYPE},
+                        new String[]{groupFieldName, "SUM", "COUNT"});
+            } else {
+                tupleDesc = new TupleDesc(
+                        new Type[]{gbFieldType, Type.INT_TYPE},
+                        new String[]{groupFieldName, what.toString()});
             }
-            return new TupleIterator(tupleDesc, tuples);
         } else {
-            TupleDesc tupleDesc = new TupleDesc(
-                    new Type[]{Type.INT_TYPE},
-                    new String[]{what.toString()});
-            ArrayList<Tuple> tuples = new ArrayList<Tuple>();
-            for (Field group : countGroupedBy.keySet()) {
-                Tuple tuple = new Tuple(tupleDesc);
-                tuple.setField(0, new IntField(getAggregateValue(group)));
-                tuples.add(tuple);
+            if (what == Op.SUM_COUNT) {
+                tupleDesc = new TupleDesc(
+                        new Type[]{Type.INT_TYPE, Type.INT_TYPE},
+                        new String[]{"SUM", "COUNT"});
+            } else {
+                tupleDesc = new TupleDesc(
+                        new Type[]{Type.INT_TYPE},
+                        new String[]{what.toString()});
             }
-            return new TupleIterator(tupleDesc, tuples);
         }
+        ArrayList<Tuple> tuples = new ArrayList<Tuple>();
+        for (Field group : countGroupedBy.keySet()) {
+
+            Tuple tuple = new Tuple(tupleDesc);
+            if (hasGroup) {
+                tuple.setField(0, group);
+            }
+            tuple.setField(hasGroup ? 1:0, new IntField(getAggregateValue(group)[0]));
+            if (what == Op.SUM_COUNT) {
+                tuple.setField(hasGroup ? 2:1, new IntField(getAggregateValue(group)[1]));
+            }
+            tuples.add(tuple);
+        }
+        return new TupleIterator(tupleDesc, tuples);
     }
 
-    private Integer getAggregateValue(Field group) {
-        Integer aggregateValue = null;
+    private Integer[] getAggregateValue(Field group) {
         switch (what) {
             case AVG:
-                aggregateValue = valueGroupedBy.get(group) / countGroupedBy.get(group);
-                break;
+            case SC_AVG:
+                return new Integer[]{valueGroupedBy.get(group) / countGroupedBy.get(group)};
             case COUNT:
-                aggregateValue = countGroupedBy.get(group);
-                break;
             case MAX:
-                aggregateValue = valueGroupedBy.get(group);
-                break;
             case MIN:
-                aggregateValue = valueGroupedBy.get(group);
-                break;
             case SUM:
-                aggregateValue = valueGroupedBy.get(group);
+                return new Integer[]{valueGroupedBy.get(group)};
+            case SUM_COUNT:
+                return new Integer[]{valueGroupedBy.get(group), countGroupedBy.get(group)};
             default:
                 break;
         }
-        return aggregateValue;
+        return new Integer[]{};
     }
 }
