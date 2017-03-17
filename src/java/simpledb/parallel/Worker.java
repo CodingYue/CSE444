@@ -12,19 +12,10 @@ import org.apache.mina.core.service.IoHandlerAdapter;
 import org.apache.mina.core.session.IoSession;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 
-import java.util.NoSuchElementException;
-import simpledb.DbException;
-import simpledb.Tuple;
-import simpledb.TupleDesc;
-import simpledb.TransactionAbortedException;
-import simpledb.Tuple;
-import simpledb.TupleDesc;
-import simpledb.Operator;
-import simpledb.Database;
-import simpledb.DbIterator;
-import simpledb.QueryPlanVisualizer;
+import simpledb.*;
 
 import simpledb.parallel.Exchange.ParallelOperatorID;
+
 
 /**
  * Workers do the real query execution. A query received by the server will be
@@ -62,8 +53,16 @@ public class Worker {
                 query = Worker.this.queryPlan;
                 // }
                 if (query != null) {
-                    System.out.println("Worker start processing query");
-                    // Add some code here
+                    System.out.println("Worker start processing query, query = " + query);
+                    try {
+                        queryPlan.open();
+                        while (queryPlan.hasNext()) {
+                            queryPlan.next();
+                        }
+                        queryPlan.close();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                     Worker.this.finishQuery();
                 }
 
@@ -214,7 +213,24 @@ public class Worker {
      * information.
      * */
     public void localizeQueryPlan(DbIterator queryPlan) {
-        // some code goes here
+        if (queryPlan instanceof SeqScan) {
+            SeqScan seqScan = (SeqScan) queryPlan;
+            seqScan.reset(Database.getCatalog().getTableId(seqScan.getTableName()),
+                    seqScan.getAlias());
+        }
+        if (queryPlan instanceof Operator) {
+            if (queryPlan instanceof Producer) {
+                ((Producer) queryPlan).setThisWorker(this);
+            }
+            if (queryPlan instanceof Consumer) {
+                ((Consumer) queryPlan).setBuffer(inBuffer.get(((Consumer) queryPlan).getOperatorID()));
+            }
+            DbIterator[] children = ((Operator) queryPlan).getChildren();
+            for (DbIterator child : children) {
+                localizeQueryPlan(child);
+            }
+            ((Operator) queryPlan).setChildren(children);
+        }
     }
 
     /**
@@ -268,7 +284,6 @@ public class Worker {
             return;
         }
 
-        new QueryPlanVisualizer().printQueryPlanTree(query, System.out);
         ArrayList<ParallelOperatorID> ids = new ArrayList<ParallelOperatorID>();
         collectConsumerOperatorIDs(query, ids);
         Worker.this.inBuffer.clear();
@@ -278,6 +293,7 @@ public class Worker {
         }
         // }
         Worker.this.localizeQueryPlan(query);
+        new QueryPlanVisualizer().printQueryPlanTree(query, System.out);
         Worker.this.queryPlan = query;
     }
 
@@ -285,9 +301,10 @@ public class Worker {
      * This method should be called when a data item is received
      * */
     public void receiveData(ExchangeMessage data) {
-        if (data instanceof TupleBag)
+        if (data instanceof TupleBag) {
             System.out.println("TupleBag received from " + data.getWorkerID()
                     + " to Operator: " + data.getOperatorID());
+        }
         else if (data instanceof BloomFilterBitSet)
             System.out.println("BitSet received from " + data.getWorkerID()
                     + " to Operator: " + data.getOperatorID());

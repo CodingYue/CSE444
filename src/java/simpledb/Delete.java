@@ -11,11 +11,9 @@ public class Delete extends Operator {
     private static final long serialVersionUID = 1L;
 
     private final TransactionId transactionId;
-    private final DbIterator child;
+    private DbIterator child;
 
     private boolean hasBeenCalled;
-
-    private DbIterator[] children;
 
     /**
      * Constructor specifying the transaction that this delete belongs to as
@@ -81,12 +79,13 @@ public class Delete extends Operator {
 
     @Override
     public DbIterator[] getChildren() {
-        return children;
+        return new DbIterator[]{child};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        this.children = children;
+        assert children.length == 1;
+        child = children[0];
     }
 
 }

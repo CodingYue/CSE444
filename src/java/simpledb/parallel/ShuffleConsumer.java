@@ -1,6 +1,7 @@
 package simpledb.parallel;
 
-import java.util.Iterator;
+import java.util.*;
+
 import simpledb.DbException;
 import simpledb.DbIterator;
 import simpledb.TransactionAbortedException;
@@ -20,6 +21,23 @@ public class ShuffleConsumer extends Consumer {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * innerBufferIndex and innerBuffer are used to buffer
+     * all the TupleBags this operator has received. We need
+     * this because we need to support rewind.
+     * */
+    private transient int innerBufferIndex;
+    private transient ArrayList<TupleBag> innerBuffer;
+
+
+    private TupleDesc td;
+    private DbIterator child;
+    private final BitSet workerEOS;
+    private final SocketInfo[] workers;
+    private final Map<String, Integer> workerIdToIndex;
+
+    private transient Iterator<Tuple> tuples;
+
     public String getName() {
         return "shuffle_c";
     }
@@ -31,29 +49,55 @@ public class ShuffleConsumer extends Consumer {
     public ShuffleConsumer(ShuffleProducer child,
             ParallelOperatorID operatorID, SocketInfo[] workers) {
         super(operatorID);
-        // some code goes here
+        this.child = child;
+        this.workers = workers;
+        if (child != null) {
+            this.td = child.getTupleDesc();
+        }
+        workerIdToIndex = new HashMap<String, Integer>();
+        int idx = 0;
+        for (SocketInfo w : workers) {
+            this.workerIdToIndex.put(w.getId(), idx++);
+        }
+        this.workerEOS = new BitSet(workers.length);
     }
 
     @Override
     public void open() throws DbException, TransactionAbortedException {
-        // some code goes here
+        super.open();
+        this.tuples = null;
+        this.innerBuffer = new ArrayList<TupleBag>();
+        this.innerBufferIndex = 0;
+        if (this.child != null) {
+            this.child.open();
+        }
     }
 
     @Override
     public void rewind() throws DbException, TransactionAbortedException {
-        // some code goes here
+        this.tuples = null;
+        this.innerBufferIndex = 0;
     }
 
     @Override
     public void close() {
-        // some code goes here
+        super.close();
+        this.setBuffer(null);
+        this.tuples = null;
+        this.innerBufferIndex = -1;
+        this.innerBuffer = null;
+        this.workerEOS.clear();
+        if (child != null) {
+            child.close();
+        }
     }
 
     @Override
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
-
+        if (child != null) {
+            td = child.getTupleDesc();
+        }
+        return td;
     }
 
     /**
@@ -66,25 +110,50 @@ public class ShuffleConsumer extends Consumer {
      *         of file message.
      */
     Iterator<Tuple> getTuples() throws InterruptedException {
-        // some code goes here
+        if (innerBufferIndex < innerBuffer.size()) {
+            return this.innerBuffer.get(this.innerBufferIndex++).iterator();
+        }
+        while (this.workerEOS.nextClearBit(0) < this.workers.length) {
+            TupleBag tb = (TupleBag) this.take(-1);
+            if (tb.isEos()) {
+                workerEOS.set(workerIdToIndex.get(tb.getWorkerID()));
+            } else {
+                innerBuffer.add(tb);
+                innerBufferIndex++;
+                return tb.iterator();
+            }
+        }
         return null;
     }
 
+
+
     @Override
     protected Tuple fetchNext() throws DbException, TransactionAbortedException {
-        // some code goes here
-        return null;
+        while (tuples == null || !tuples.hasNext()) {
+            try {
+                tuples = getTuples();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                throw new DbException(e.getLocalizedMessage());
+            }
+            if (tuples == null) {
+                return null;
+            }
+        }
+        return tuples.next();
     }
 
     @Override
     public DbIterator[] getChildren() {
-        // some code goes here
-        return null;
+        return new DbIterator[]{child};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        // some code goes here
+        assert children.length == 1;
+        child = children[0];
+        td = child.getTupleDesc();
     }
 
 }

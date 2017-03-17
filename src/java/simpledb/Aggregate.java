@@ -11,14 +11,15 @@ public class Aggregate extends Operator {
 
     private static final long serialVersionUID = 1L;
 
-    private final DbIterator child;
     private final int afield;
     private final int gfield;
     private final Aggregator.Op aop;
 
+    private final TupleDesc initialChildTD;
+    
     private DbIterator aggregateIterator;
 
-    private DbIterator[] children;
+    private DbIterator child;
 
     /**
      * Constructor.
@@ -44,6 +45,7 @@ public class Aggregate extends Operator {
 	    this.gfield = gfield;
 	    this.aop = aop;
         this.aggregateIterator = null;
+        initialChildTD = child.getTupleDesc();
     }
 
     /**
@@ -61,7 +63,7 @@ public class Aggregate extends Operator {
      *         null;
      * */
     public String groupFieldName() {
-	    return gfield == Aggregator.NO_GROUPING ? null : child.getTupleDesc().getFieldName(gfield);
+	    return gfield == Aggregator.NO_GROUPING ? null : initialChildTD.getFieldName(gfield);
     }
 
     /**
@@ -76,7 +78,7 @@ public class Aggregate extends Operator {
      *         tuples
      * */
     public String aggregateFieldName() {
-	    return child.getTupleDesc().getFieldName(afield);
+	    return initialChildTD.getFieldName(afield);
     }
 
     /**
@@ -96,9 +98,9 @@ public class Aggregate extends Operator {
         super.open();
         if (aggregateIterator == null) {
             Aggregator aggregator;
-            Type afieldType = child.getTupleDesc().getFieldType(afield);
+            Type afieldType = initialChildTD.getFieldType(afield);
             Type gfieldType = gfield == Aggregator.NO_GROUPING ?
-                    null : child.getTupleDesc().getFieldType(gfield);
+                    null : initialChildTD.getFieldType(gfield);
             if (afieldType.equals(Type.INT_TYPE)) {
                 aggregator = new IntegerAggregator(gfield, gfieldType, afield, aop);
             } else {
@@ -143,14 +145,16 @@ public class Aggregate extends Operator {
      * iterator.
      */
     public TupleDesc getTupleDesc() {
+//        return initialChildTD;
+//        System.out.println("Child td " + initialChildTD + ", afield " + afield + ", gfield " + gfield);
         if (gfield == Aggregator.NO_GROUPING) {
             return new TupleDesc(
                     new Type[]{Type.INT_TYPE},
                     new String[]{nameOfAggregatorOp(aop)});
         } else {
             return new TupleDesc(
-                    new Type[]{child.getTupleDesc().getFieldType(gfield), Type.INT_TYPE},
-                    new String[]{child.getTupleDesc().getFieldName(gfield), child.getTupleDesc().getFieldName(afield)});
+                    new Type[]{initialChildTD.getFieldType(gfield), Type.INT_TYPE},
+                    new String[]{initialChildTD.getFieldName(gfield), initialChildTD.getFieldName(afield)});
         }
     }
 
@@ -162,12 +166,18 @@ public class Aggregate extends Operator {
 
     @Override
     public DbIterator[] getChildren() {
-	    return children;
+	    return new DbIterator[]{child};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-	    this.children = children;
+        assert children.length == 1;
+	    this.child = children[0];
+    }
+
+    public void debug() {
+        System.out.println("Child td " + initialChildTD + ", afield " + afield + ", gfield " + gfield);
+        System.out.println("gfieldName " + groupFieldName() + ", afield name" + aggregateFieldName());
     }
     
 }

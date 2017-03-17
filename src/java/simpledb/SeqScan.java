@@ -15,7 +15,8 @@ public class SeqScan implements DbIterator {
 
     private int tableId;
     private String tableAlias;
-    private DbFileIterator tableIterator;
+    private String tableName;
+    private transient DbFileIterator tableIterator;
 
     /**
      * Creates a sequential scan over the specified table as a part of the
@@ -37,6 +38,7 @@ public class SeqScan implements DbIterator {
         this.tid = tid;
         this.tableId = tableid;
         this.tableAlias = tableAlias;
+        this.tableName = Database.getCatalog().getTableName(tableid);
     }
 
     /**
@@ -45,7 +47,7 @@ public class SeqScan implements DbIterator {
      *       be the actual name of the table in the catalog of the database
      * */
     public String getTableName() {
-        return Database.getCatalog().getTableName(tableId);
+        return this.tableName;
     }
     
     /**
@@ -71,6 +73,7 @@ public class SeqScan implements DbIterator {
     public void reset(int tableid, String tableAlias) {
         this.tableId = tableid;
         this.tableAlias = tableAlias;
+        this.tableName = Database.getCatalog().getTableName(tableid);
     }
 
     public SeqScan(TransactionId tid, int tableid) {
@@ -95,7 +98,7 @@ public class SeqScan implements DbIterator {
         TupleDesc tupleDesc = Database.getCatalog().getDatabaseFile(tableId).getTupleDesc();
         TupleDesc.TDItem[] items = new TupleDesc.TDItem[tupleDesc.numFields()];
         for (int i = 0; i < tupleDesc.numFields(); ++i) {
-            items[i] = new TupleDesc.TDItem(tupleDesc.getFieldType(i), tableAlias + tupleDesc.getFieldName(i));
+            items[i] = new TupleDesc.TDItem(tupleDesc.getFieldType(i), tableAlias + "." + tupleDesc.getFieldName(i));
         }
         return new TupleDesc(items);
     }

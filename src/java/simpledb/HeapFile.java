@@ -73,9 +73,11 @@ public class HeapFile implements DbFile {
                 randomAccessFile.seek(BufferPool.PAGE_SIZE * pid.pageNumber());
                 byte[] data = new byte[BufferPool.PAGE_SIZE];
                 randomAccessFile.read(data);
+                randomAccessFile.close();
                 return new HeapPage((HeapPageId) pid, data);
             }
         } catch (Exception e) {
+            e.printStackTrace();
             throw new NoSuchElementException();
         }
     }

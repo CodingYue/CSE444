@@ -1,7 +1,9 @@
 package simpledb;
 
+import java.io.Serializable;
+
 /** Unique identifier for HeapPage objects. */
-public class HeapPageId implements PageId {
+public class HeapPageId implements PageId, Serializable {
 
     private final int tableId;
     private final int pgNo;

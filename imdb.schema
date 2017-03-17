@@ -1,0 +1,6 @@
+actor(id int, fname string, lname string, gender string)
+movie(id int, name string, year int)
+director(id int, fname string, lname string)
+casts(pid int, mid int, role string)
+movie_director(did int, mid int)
+genre(mid int, genre string)

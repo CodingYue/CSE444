@@ -11,12 +11,10 @@ public class Insert extends Operator {
     private static final long serialVersionUID = 1L;
 
     private final TransactionId tid;
-    private final DbIterator child;
     private final int tableId;
 
+    private DbIterator child;
     private boolean hasBeenCalled;
-
-    private DbIterator[] children;
 
     /**
      * Constructor.
@@ -95,11 +93,12 @@ public class Insert extends Operator {
 
     @Override
     public DbIterator[] getChildren() {
-        return children;
+        return new DbIterator[]{child};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        this.children = children;
+        assert children.length == 1;
+        child = children[0];
     }
 }
